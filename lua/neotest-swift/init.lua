@@ -59,11 +59,10 @@ class_declaration
          name: (simple_identifier) @test.name) @test.definition
 
 ]]
-	local positions = lib.treesitter.parse_positions(file_path, query, {
+	return lib.treesitter.parse_positions(file_path, query, {
 		nested_tests = false,
 		require_namespaces = false,
 	})
-	return positions
 end
 
 function SwiftNeotestAdapter.build_spec(args)
@@ -71,6 +70,11 @@ function SwiftNeotestAdapter.build_spec(args)
 	local junit_folder = async.fn.tempname()
 	local cwd = assert(SwiftNeotestAdapter.root(position.path), "could not locate root directory of " .. position.path)
 	local command = "swift test  --xunit-output " .. junit_folder .. ".junit.xml"
+
+	if position.type == "file" then
+		i("position", position)
+		command = command .. " --filter /" .. position.name
+	end
 
 	-- if position.type == "test" or position.type == "namespace" then
 	-- 	command = "swift test " .. position.path .. " --test-name-pattern " .. position.name
