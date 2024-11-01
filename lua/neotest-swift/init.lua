@@ -72,7 +72,7 @@ function SwiftNeotestAdapter.build_spec(args)
 	local command = "swift test  --xunit-output " .. junit_folder .. ".junit.xml"
 
 	if position.type == "file" then
-		i("position", position)
+		-- i("position", position)
 		command = command .. " --filter /" .. position.name
 	end
 
@@ -148,7 +148,7 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 			output = output,
 		}
 	end
-	i("results", results)
+	-- i("results", results)
 	return results
 end
 
