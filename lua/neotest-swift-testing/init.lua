@@ -4,8 +4,10 @@ local context_manager = require("plenary.context_manager")
 local open = context_manager.open
 local with = context_manager.with
 local xml = require("neotest.lib.xml")
-local util = require("neotest-swift.util")
-local errors = require("neotest-swift.errors")
+local util = require("neotest-swift-testing.util")
+local errors = require("neotest-swift-testing.errors")
+local Path = require("plenary.path")
+local logger = require("neotest-swift-testing.logging")
 
 local SwiftNeotestAdapter = {
 	name = "neotest-swift",
@@ -13,10 +15,6 @@ local SwiftNeotestAdapter = {
 
 function SwiftNeotestAdapter.root(dir)
 	return lib.files.match_root_pattern("Package.swift")(dir)
-end
-
-local function i(prefix, value)
-	print(prefix, vim.inspect(value))
 end
 
 local function table_contains(table, value)
@@ -29,21 +27,24 @@ local function table_contains(table, value)
 end
 
 function SwiftNeotestAdapter.filter_dir(name, rel_path, root)
-	local filtered_folders = { "Sources", "build", ".git", ".build" }
+	local filtered_folders = { "Sources", "build", ".git", ".build", ".git", ".swiftpm" }
 	return table_contains(filtered_folders, name) == false
 end
 
 function SwiftNeotestAdapter.is_test_file(file_path)
-	local result = string.match(file_path, ".*Tests.swift$") ~= nil
-	return result
+	if not vim.endswith(file_path, ".swift") then
+		return false
+	end
+	local elems = vim.split(file_path, Path.path.sep)
+	local file_name = elems[#elems]
+	return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
 end
 
 function SwiftNeotestAdapter.discover_positions(file_path)
 	local query = [[
 
 ;; struct TestSuite
-(
-class_declaration
+(class_declaration
     (modifiers
         (attribute
             (user_type
@@ -59,10 +60,7 @@ class_declaration
          name: (simple_identifier) @test.name) @test.definition
 
 ]]
-	return lib.treesitter.parse_positions(file_path, query, {
-		nested_tests = false,
-		require_namespaces = false,
-	})
+	return lib.treesitter.parse_positions(file_path, query, {})
 end
 
 function SwiftNeotestAdapter.build_spec(args)
@@ -71,18 +69,14 @@ function SwiftNeotestAdapter.build_spec(args)
 	local cwd = assert(SwiftNeotestAdapter.root(position.path), "could not locate root directory of " .. position.path)
 	local command = "swift test  --xunit-output " .. junit_folder .. ".junit.xml"
 
-	if position.type == "file" then
-		-- i("position", position)
-		command = command .. " --filter /" .. position.name
-	end
+	logger.info("Type: " .. position.type)
+	logger.info("Name: " .. position.name)
 
-	-- if position.type == "test" or position.type == "namespace" then
-	-- 	command = "swift test " .. position.path .. " --test-name-pattern " .. position.name
-	-- elseif position.type == "file" then
-	-- 	command = "swift test " .. position.name
-	-- elseif position.type == "dir" then
-	-- 	command = "swift test"
-	-- end
+	if position.type == "file" then
+		command = command .. " --filter /" .. position.name
+	elseif position.type == "namespace" or position.type == "test" then
+		command = command .. " --filter " .. position.name
+	end
 
 	return {
 		command = command,
@@ -93,13 +87,9 @@ function SwiftNeotestAdapter.build_spec(args)
 	}
 end
 
-local function replace_first_occurrence(str, char, replacement)
-	return string.gsub(str, char, replacement, 1)
-end
-
 function SwiftNeotestAdapter.results(spec, result, tree)
-	local output_path = spec.strategy.stdio and spec.strategy.stdio[2] or result.output
 	local results = {}
+	logger.info(vim.inspect(tree))
 	if util.file_exists(spec.context.results_path) then
 		local data
 		with(open(spec.context.results_path, "r"), function(reader)
@@ -133,13 +123,20 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 						errors = errors.parse_errors(output),
 					}
 				else
-					local classname = replace_first_occurrence(testcase._attr.classname, "%.", "/")
-					results[spec.cwd .. "/Tests/" .. classname .. ".swift::" .. testcase._attr.name] = {
-						status = "passed",
-					}
+					local filename = util.replace_first_occurrence(testcase._attr.classname, "%.", "/")
+					local name = util.replace_first_occurrence(testcase._attr.classname, "%.", "::")
+					results[spec.cwd .. "/Tests/" .. filename .. ".swift::" .. util.trim_up_to_prefix(
+						testcase._attr.classname,
+						"."
+					) .. "::" .. util.get_prefix(testcase._attr.name, "(")] =
+						{
+							status = "passed",
+						}
 				end
 			end
 		end
+
+		logger.info("Testsuites: " .. vim.inspect(testsuites))
 	else
 		local output = result.output
 
@@ -148,7 +145,8 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 			output = output,
 		}
 	end
-	-- i("results", results)
+	logger.info(results)
+	logger.info("Results: " .. vim.inspect(results))
 	return results
 end
 
