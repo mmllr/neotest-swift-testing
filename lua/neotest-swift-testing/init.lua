@@ -51,21 +51,22 @@ end
 function SwiftNeotestAdapter.discover_positions(file_path)
 	local query = [[
 
-;; struct TestSuite
-(class_declaration
+;; @Suite struct TestSuite
+((class_declaration
     (modifiers
         (attribute
             (user_type
-                (type_identifier) @annotation (#eq? @annotation "Suite"))))
-         name: (type_identifier) @namespace.name) @namespace.definition
+                (type_identifier) @annotation (#eq? @annotation "Suite"))))?
+         name: (type_identifier) @namespace.name)
+         ) @namespace.definition
 
-;; test func 
-(function_declaration
+;; @Test test func 
+((function_declaration
     (modifiers
         (attribute
             (user_type
                 (type_identifier) @annotation (#eq? @annotation "Test"))))
-         name: (simple_identifier) @test.name) @test.definition
+         name: (simple_identifier) @test.name)) @test.definition
 
 ]]
 	return lib.treesitter.parse_positions(file_path, query, {})
