@@ -8,6 +8,14 @@ local util = require("neotest-swift-testing.util")
 local errors = require("neotest-swift-testing.errors")
 local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
+local filetype = require("plenary.filetype")
+
+-- Add filetype for swift until it gets added to plenary's built-in filetypes
+if filetype.detect_from_extension("swift") == "" then
+	filetype.add_table({
+		extension = { ["swift"] = "swift" },
+	})
+end
 
 local SwiftNeotestAdapter = {
 	name = "neotest-swift",
