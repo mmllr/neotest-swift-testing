@@ -82,7 +82,11 @@ function SwiftNeotestAdapter.build_spec(args)
 
 	if position.type == "file" then
 		command = command .. " --filter /" .. position.name
-	elseif position.type == "namespace" or position.type == "test" then
+	elseif
+		position.type == "namespace"
+		or position.type == "test"
+		or position.type == "dir" and position.name ~= cwd
+	then
 		command = command .. " --filter " .. position.name
 	end
 
