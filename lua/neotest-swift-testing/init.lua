@@ -11,6 +11,7 @@ local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
 
 -- Add filetype for swift until it gets added to plenary's built-in filetypes
+-- See https://github.com/nvim-lua/plenary.nvim?tab=readme-ov-file#plenaryfiletype for more information
 if filetype.detect_from_extension("swift") == "" then
 	filetype.add_table({
 		extension = { ["swift"] = "swift" },
