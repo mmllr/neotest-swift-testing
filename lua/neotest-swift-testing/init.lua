@@ -19,7 +19,7 @@ if filetype.detect_from_extension("swift") == "" then
 end
 
 local SwiftNeotestAdapter = {
-	name = "neotest-swift",
+	name = "neotest-swift-testing",
 }
 
 function SwiftNeotestAdapter.root(dir)
