@@ -26,18 +26,9 @@ function SwiftNeotestAdapter.root(dir)
 	return lib.files.match_root_pattern("Package.swift")(dir)
 end
 
-local function table_contains(table, value)
-	for _, v in pairs(table) do
-		if v == value then
-			return true
-		end
-	end
-	return false
-end
-
 function SwiftNeotestAdapter.filter_dir(name, rel_path, root)
 	local filtered_folders = { "Sources", "build", ".git", ".build", ".git", ".swiftpm" }
-	return table_contains(filtered_folders, name) == false
+	return util.table_contains(filtered_folders, name) == false
 end
 
 function SwiftNeotestAdapter.is_test_file(file_path)
@@ -77,18 +68,13 @@ function SwiftNeotestAdapter.build_spec(args)
 	local position = args.tree:data()
 	local junit_folder = async.fn.tempname()
 	local cwd = assert(SwiftNeotestAdapter.root(position.path), "could not locate root directory of " .. position.path)
-	local command = "swift test  --xunit-output " .. junit_folder .. ".junit.xml"
-
-	logger.info("Type: " .. position.type)
-	logger.info("Name: " .. position.name)
+	local command = "swift test -q --xunit-output " .. junit_folder .. ".junit.xml"
 
 	if position.type == "file" then
 		command = command .. " --filter /" .. position.name
-	elseif
-		position.type == "namespace"
-		or position.type == "test"
-		or position.type == "dir" and position.name ~= cwd
-	then
+	elseif position.type == "namespace" then
+		command = command .. ' --filter ".' .. position.name .. '$"'
+	elseif position.type == "test" or position.type == "dir" and position.name ~= cwd then
 		command = command .. " --filter " .. position.name
 	end
 
@@ -103,8 +89,20 @@ end
 
 function SwiftNeotestAdapter.results(spec, result, tree)
 	local results = {}
-	logger.info(vim.inspect(tree))
+	local position = tree:data()
+	local list = tree:to_list()
+	local tests = util.collect_tests(list)
+	local nodes = {}
+	if position.type == "test" then
+		table.insert(nodes, position)
+	end
+
+	for _, node in ipairs(tests) do
+		table.insert(nodes, node)
+	end
+	logger.debug("Nodes: " .. vim.inspect(nodes))
 	if util.file_exists(spec.context.results_path) then
+		logger.debug("Results junit.xml: " .. spec.context.results_path)
 		local data
 		with(open(spec.context.results_path, "r"), function(reader)
 			data = reader:read("*a")
@@ -122,35 +120,38 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 		end
 		for _, testsuite in pairs(testsuites) do
 			local testcases
-			if #testsuite.testcase == 0 then
+
+			if testsuite.testcase == nil then
+				testcases = {}
+			elseif #testsuite.testcase == 0 then
 				testcases = { testsuite.testcase }
 			else
 				testcases = testsuite.testcase
 			end
-			for _, testcase in pairs(testcases) do
-				if testcase.failure then
-					local output = testcase.failure[1]
 
-					results[testcase._attr.name] = {
-						status = "failed",
-						short = output,
-						errors = errors.parse_errors(output),
-					}
-				else
-					local filename = util.replace_first_occurrence(testcase._attr.classname, "%.", "/")
-					local name = util.replace_first_occurrence(testcase._attr.classname, "%.", "::")
-					results[spec.cwd .. "/Tests/" .. filename .. ".swift::" .. util.trim_up_to_prefix(
-						testcase._attr.classname,
-						"."
-					) .. "::" .. util.get_prefix(testcase._attr.name, "(")] =
-						{
+			for _, testcase in pairs(testcases) do
+				local function result_from_testcaste(t)
+					if t.failure then
+						return {
+							status = "failed",
+							errors = {
+								{ message = t.failure._attr.message },
+							},
+						}
+					else
+						return {
 							status = "passed",
 						}
+					end
+				end
+				local position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name)
+				if position ~= nil then
+					results[position.id] = result_from_testcaste(testcase)
+				else
+					logger.info("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
 				end
 			end
 		end
-
-		logger.info("Testsuites: " .. vim.inspect(testsuites))
 	else
 		local output = result.output
 
@@ -159,8 +160,7 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 			output = output,
 		}
 	end
-	logger.info(results)
-	logger.info("Results: " .. vim.inspect(results))
+	logger.debug("Results: " .. vim.inspect(results))
 	return results
 end
 
