@@ -18,46 +18,6 @@ if filetype.detect_from_extension("swift") == "" then
 	})
 end
 
-local function swift_test_list()
-	local list_cmd = { "swift", "test", "list", "-c", "debug", "--skip-build", "--enable-xctest" }
-	local list_cmd_string = table.concat(list_cmd, " ")
-	logger.debug("Running swift list: " .. list_cmd_string)
-	local result = vim.system(list_cmd, { text = true }):wait()
-
-	local err = nil
-	if result.code == 1 then
-		err = "swift list:"
-		if result.stdout ~= nil and result.stdout ~= "" then
-			err = err .. " " .. result.stdout
-		end
-		if result.stdout ~= nil and result.stderr ~= "" then
-			err = err .. " " .. result.stderr
-		end
-		logger.error({ "Swift list error: ", err })
-	end
-	return result
-end
-
-local function swift_package_describe()
-	local describe_cmd = { "swift", "package", "describe" }
-	local describe_cmd_string = table.concat(describe_cmd, " ")
-	logger.debug("Running swift package describe: " .. describe_cmd_string)
-	local result = vim.system(describe_cmd, { text = true }):wait()
-
-	local err = nil
-	if result.code == 1 then
-		err = "swift package describe:"
-		if result.stdout ~= nil and result.stdout ~= "" then
-			err = err .. " " .. result.stdout
-		end
-		if result.stdout ~= nil and result.stderr ~= "" then
-			err = err .. " " .. result.stderr
-		end
-		logger.error({ "Swift package describe error: ", err })
-	end
-	return result
-end
-
 local get_root = lib.files.match_root_pattern("Package.swift")
 
 local treesitter_query = [[
@@ -118,6 +78,27 @@ local function build_spec(args)
 		cwd = cwd,
 	}
 end
+---comment
+---@param output string[]
+---@param position neotest.Position
+---@param failure_message string
+---@return integer?
+local function parse_errors(output, position, failure_message)
+	local pattern = "Test (%w+)%(%) recorded an issue at ([%w-_]+%.swift):(%d+):%d+: (.+)"
+	for _, line in ipairs(output) do
+		local method, file, line_number, message = line:match(pattern)
+		if method and file and line_number and message then
+			logger.debug(
+				"Method: " .. method .. " File: " .. file .. " Line: " .. line_number .. " Message: " .. message
+			)
+
+			if method == position.name and vim.endswith(position.path, file) and message == failure_message then
+				return line_number
+			end
+		end
+	end
+	return nil
+end
 
 ---@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
@@ -129,6 +110,35 @@ local function results(spec, result, tree)
 	local list = tree:to_list()
 	local tests = util.collect_tests(list)
 	local nodes = {}
+
+	--- Test command (e.g. 'swift test') status.
+	--- @type neotest.ResultStatus
+	local result_status = nil
+
+	-- @type RunspecContext
+	local context = spec.context
+
+	-- if neotest_result[pos.id] and neotest_result[pos.id].status == "skipped" then
+	-- keep the status if it was already decided to be skipped.
+	-- result_status = "skipped"
+	if spec.context.errors ~= nil and #spec.context.errors > 0 then
+		logger.debug("Errors: " .. spec.context.errors)
+		-- mark as failed if a non-test error occurred.
+		test_results[spec.context.position_id] = {
+			status = "failed",
+			errors = spec.context.errors,
+		}
+		return test_results
+	elseif result.code > 0 then
+		-- mark as failed if the test command failed.
+		result_status = "failed"
+	elseif result.code == 0 then
+		-- mark as passed if the 'test' command passed.
+		result_status = "passed"
+	else
+		logger.error("Unexpected state when determining test status. Exit code was: " .. result.code)
+	end
+
 	if position.type == "test" then
 		table.insert(nodes, position)
 	end
@@ -137,6 +147,8 @@ local function results(spec, result, tree)
 		table.insert(nodes, node)
 	end
 	logger.debug("Nodes: " .. vim.inspect(nodes))
+	local raw_output = async.fn.readfile(result.output)
+
 	if util.file_exists(spec.context.results_path) then
 		logger.debug("Results junit.xml: " .. spec.context.results_path)
 		local data
@@ -166,23 +178,28 @@ local function results(spec, result, tree)
 			end
 
 			for _, testcase in pairs(testcases) do
-				local function result_from_testcaste(t)
-					if t.failure then
-						return {
+				local test_position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name)
+				if test_position ~= nil then
+					local r = {}
+
+					if testcase.failure then
+						local line_number = parse_errors(raw_output, test_position, testcase.failure._attr.message)
+						r = {
 							status = "failed",
 							errors = {
-								{ message = t.failure._attr.message },
+								{
+									message = testcase.failure._attr.message,
+									line = line_number and tonumber(line_number) - 1 or nil, -- neovim lines are 0-indexed
+								},
 							},
 						}
 					else
-						return {
+						r = {
 							status = "passed",
 						}
 					end
-				end
-				local position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name)
-				if position ~= nil then
-					test_results[position.id] = result_from_testcaste(testcase)
+
+					test_results[test_position.id] = r
 				else
 					logger.info("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
 				end
