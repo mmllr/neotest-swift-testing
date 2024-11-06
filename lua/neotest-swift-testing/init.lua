@@ -18,31 +18,49 @@ if filetype.detect_from_extension("swift") == "" then
 	})
 end
 
-local SwiftNeotestAdapter = {
-	name = "neotest-swift-testing",
-}
+local function swift_test_list()
+	local list_cmd = { "swift", "test", "list", "-c", "debug", "--skip-build", "--enable-xctest" }
+	local list_cmd_string = table.concat(list_cmd, " ")
+	logger.debug("Running swift list: " .. list_cmd_string)
+	local result = vim.system(list_cmd, { text = true }):wait()
 
-function SwiftNeotestAdapter.root(dir)
-	return lib.files.match_root_pattern("Package.swift")(dir)
-end
-
-function SwiftNeotestAdapter.filter_dir(name, rel_path, root)
-	local filtered_folders = { "Sources", "build", ".git", ".build", ".git", ".swiftpm" }
-	return util.table_contains(filtered_folders, name) == false
-end
-
-function SwiftNeotestAdapter.is_test_file(file_path)
-	if not vim.endswith(file_path, ".swift") then
-		return false
+	local err = nil
+	if result.code == 1 then
+		err = "swift list:"
+		if result.stdout ~= nil and result.stdout ~= "" then
+			err = err .. " " .. result.stdout
+		end
+		if result.stdout ~= nil and result.stderr ~= "" then
+			err = err .. " " .. result.stderr
+		end
+		logger.error({ "Swift list error: ", err })
 	end
-	local elems = vim.split(file_path, Path.path.sep)
-	local file_name = elems[#elems]
-	return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
+	return result
 end
 
-function SwiftNeotestAdapter.discover_positions(file_path)
-	local query = [[
+local function swift_package_describe()
+	local describe_cmd = { "swift", "package", "describe" }
+	local describe_cmd_string = table.concat(describe_cmd, " ")
+	logger.debug("Running swift package describe: " .. describe_cmd_string)
+	local result = vim.system(describe_cmd, { text = true }):wait()
 
+	local err = nil
+	if result.code == 1 then
+		err = "swift package describe:"
+		if result.stdout ~= nil and result.stdout ~= "" then
+			err = err .. " " .. result.stdout
+		end
+		if result.stdout ~= nil and result.stderr ~= "" then
+			err = err .. " " .. result.stderr
+		end
+		logger.error({ "Swift package describe error: ", err })
+	end
+	return result
+end
+
+local get_root = lib.files.match_root_pattern("Package.swift")
+
+local treesitter_query = [[
 ;; @Suite struct TestSuite
 ((class_declaration
     (modifiers
@@ -51,6 +69,10 @@ function SwiftNeotestAdapter.discover_positions(file_path)
                 (type_identifier) @annotation (#eq? @annotation "Suite"))))?
          name: (type_identifier) @namespace.name)
          ) @namespace.definition
+
+((class_declaration 
+    name: (user_type 
+      (type_identifier) @namespace.name))) @namespace.definition
 
 ;; @Test test func 
 ((function_declaration
@@ -61,13 +83,13 @@ function SwiftNeotestAdapter.discover_positions(file_path)
          name: (simple_identifier) @test.name)) @test.definition
 
 ]]
-	return lib.treesitter.parse_positions(file_path, query, {})
-end
 
-function SwiftNeotestAdapter.build_spec(args)
+---@param args neotest.RunArgs
+---@return neotest.RunSpec | neotest.RunSpec[] | nil
+local function build_spec(args)
 	local position = args.tree:data()
 	local junit_folder = async.fn.tempname()
-	local cwd = assert(SwiftNeotestAdapter.root(position.path), "could not locate root directory of " .. position.path)
+	local cwd = assert(get_root(position.path), "could not locate root directory of " .. position.path)
 	local command = { "swift", "test", "--enable-swift-testing", "--xunit-output", junit_folder .. ".junit.xml" }
 
 	local filters = {}
@@ -97,8 +119,12 @@ function SwiftNeotestAdapter.build_spec(args)
 	}
 end
 
-function SwiftNeotestAdapter.results(spec, result, tree)
-	local results = {}
+---@param spec neotest.RunSpec
+---@param result neotest.StrategyResult
+---@param tree neotest.Tree
+---@return table<string, neotest.Result>
+local function results(spec, result, tree)
+	local test_results = {}
 	local position = tree:data()
 	local list = tree:to_list()
 	local tests = util.collect_tests(list)
@@ -156,7 +182,7 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 				end
 				local position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name)
 				if position ~= nil then
-					results[position.id] = result_from_testcaste(testcase)
+					test_results[position.id] = result_from_testcaste(testcase)
 				else
 					logger.info("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
 				end
@@ -165,13 +191,33 @@ function SwiftNeotestAdapter.results(spec, result, tree)
 	else
 		local output = result.output
 
-		results[spec.context.position_id] = {
+		test_results[spec.context.position_id] = {
 			status = "failed",
 			output = output,
 		}
 	end
-	logger.debug("Results: " .. vim.inspect(results))
-	return results
+	logger.debug("Results: " .. vim.inspect(test_results))
+	return test_results
 end
 
-return SwiftNeotestAdapter
+---@type neotest.Adapter
+return {
+	name = "neotest-swift-testing",
+	root = get_root,
+	filter_dir = function(name, rel_path, root)
+		return util.table_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
+	end,
+	is_test_file = function(file_path)
+		if not vim.endswith(file_path, ".swift") then
+			return false
+		end
+		local elems = vim.split(file_path, Path.path.sep)
+		local file_name = elems[#elems]
+		return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
+	end,
+	discover_positions = function(file_path)
+		return lib.treesitter.parse_positions(file_path, treesitter_query, {})
+	end,
+	build_spec = build_spec,
+	results = results,
+}
