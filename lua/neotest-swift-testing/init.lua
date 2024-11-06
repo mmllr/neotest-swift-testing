@@ -68,15 +68,25 @@ function SwiftNeotestAdapter.build_spec(args)
 	local position = args.tree:data()
 	local junit_folder = async.fn.tempname()
 	local cwd = assert(SwiftNeotestAdapter.root(position.path), "could not locate root directory of " .. position.path)
-	local command = "swift test --enable-swift-testing -q --xunit-output " .. junit_folder .. ".junit.xml"
+	local command = { "swift", "test", "--enable-swift-testing", "--xunit-output", junit_folder .. ".junit.xml" }
 
+	local filters = {}
 	if position.type == "file" then
-		command = command .. " --filter /" .. position.name
+		table.insert(filters, "/" .. position.name)
 	elseif position.type == "namespace" then
-		command = command .. ' --filter ".' .. position.name .. '$"'
+		table.insert(filters, '".' .. position.name .. '$"')
 	elseif position.type == "test" or position.type == "dir" and position.name ~= cwd then
-		command = command .. " --filter " .. position.name
+		table.insert(filters, position.name)
 	end
+
+	if #filters > 0 then
+		table.insert(command, "--filter")
+		for _, filter in ipairs(filters) do
+			table.insert(command, filter)
+		end
+	end
+
+	logger.debug("Command: " .. table.concat(command, " "))
 
 	return {
 		command = command,
