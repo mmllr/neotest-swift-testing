@@ -158,8 +158,8 @@ local function results(spec, result, tree)
 				testcases = testsuite.testcase
 			end
 
-			for _, testcase in pairs(testcases) do
-				local test_position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name)
+			for _, testcase in ipairs(testcases) do
+				local test_position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name, spec.cwd)
 				if test_position ~= nil then
 					local r = {}
 

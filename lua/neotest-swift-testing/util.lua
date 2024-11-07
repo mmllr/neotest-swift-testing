@@ -6,6 +6,9 @@ local logger = require("neotest-swift-testing.logging")
 local M = {}
 local separator = "::"
 
+---comment
+---@param file string
+---@return boolean
 M.file_exists = function(file)
 	local f = io.open(file, "r")
 
@@ -40,14 +43,26 @@ local function get_prefix(str, char)
 	return prefix
 end
 
+--comment
+---@param str string
+---@param prefix string
+---@return boolean
 local function has_prefix(str, prefix)
 	return str:sub(1, #prefix) == prefix
 end
 
+---comment
+---@param str string
+---@param suffix string
+---@return boolean
 local function has_suffix(str, suffix)
 	return str == "" or str:sub(-#suffix) == suffix
 end
 
+---@param list neotest.Position[]
+---@param prefix string
+---@param suffix string
+---@return neotest.Position?
 local function find_element_by_id(list, prefix, suffix)
 	for _, item in ipairs(list) do
 		local a = has_prefix(item.id, prefix)
@@ -81,9 +96,12 @@ M.collect_tests = function(nested_table)
 	return flattened_table
 end
 
-M.find_position = function(list, class_name, test_name)
-	local cwd = async.fn.getcwd()
-
+---@param list neotest.Position[]
+---@param class_name string
+---@param test_name string
+---@param cwd string
+---@return neotest.Position?
+M.find_position = function(list, class_name, test_name, cwd)
 	local module, class = class_name:match("([^%.]+)%.([^%.]+)")
 	if not module or not class then
 		return nil
