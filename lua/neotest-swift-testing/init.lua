@@ -106,21 +106,8 @@ end
 ---@return table<string, neotest.Result>
 local function results(spec, result, tree)
 	local test_results = {}
-	local position = tree:data()
-	local list = tree:to_list()
-	local tests = util.collect_tests(list)
 	local nodes = {}
 
-	--- Test command (e.g. 'swift test') status.
-	--- @type neotest.ResultStatus
-	local result_status = nil
-
-	-- @type RunspecContext
-	local context = spec.context
-
-	-- if neotest_result[pos.id] and neotest_result[pos.id].status == "skipped" then
-	-- keep the status if it was already decided to be skipped.
-	-- result_status = "skipped"
 	if spec.context.errors ~= nil and #spec.context.errors > 0 then
 		logger.debug("Errors: " .. spec.context.errors)
 		-- mark as failed if a non-test error occurred.
@@ -129,16 +116,11 @@ local function results(spec, result, tree)
 			errors = spec.context.errors,
 		}
 		return test_results
-	elseif result.code > 0 then
-		-- mark as failed if the test command failed.
-		result_status = "failed"
-	elseif result.code == 0 then
-		-- mark as passed if the 'test' command passed.
-		result_status = "passed"
-	else
-		logger.error("Unexpected state when determining test status. Exit code was: " .. result.code)
 	end
 
+	local position = tree:data()
+	local list = tree:to_list()
+	local tests = util.collect_tests(list)
 	if position.type == "test" then
 		table.insert(nodes, position)
 	end
@@ -208,10 +190,13 @@ local function results(spec, result, tree)
 	else
 		local output = result.output
 
-		test_results[spec.context.position_id] = {
-			status = "failed",
-			output = output,
-		}
+		logger.info("Context: " .. vim.inspect(spec.context))
+		if spec.context.position_id ~= nil then
+			test_results[spec.context.position_id] = {
+				status = "failed",
+				output = output,
+			}
+		end
 	end
 	logger.debug("Results: " .. vim.inspect(test_results))
 	return test_results
