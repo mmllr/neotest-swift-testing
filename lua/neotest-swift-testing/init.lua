@@ -5,7 +5,6 @@ local open = context_manager.open
 local with = context_manager.with
 local xml = require("neotest.lib.xml")
 local util = require("neotest-swift-testing.util")
-local errors = require("neotest-swift-testing.errors")
 local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
