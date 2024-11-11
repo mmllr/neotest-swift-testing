@@ -49,7 +49,7 @@ local function build_spec(args)
 	local position = args.tree:data()
 	local junit_folder = async.fn.tempname()
 	local cwd = assert(get_root(position.path), "could not locate root directory of " .. position.path)
-	local command = { "swift", "test", "--enable-swift-testing", "--xunit-output", junit_folder .. ".junit.xml" }
+	local command = { "swift", "test", "--enable-swift-testing", "--xunit-output", junit_folder .. ".junit.xml", "-q" }
 
 	local filters = {}
 	if position.type == "file" then
