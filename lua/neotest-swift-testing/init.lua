@@ -8,7 +8,6 @@ local util = require("neotest-swift-testing.util")
 local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
-
 -- Add filetype for swift until it gets added to plenary's built-in filetypes
 -- See https://github.com/nvim-lua/plenary.nvim?tab=readme-ov-file#plenaryfiletype for more information
 if filetype.detect_from_extension("swift") == "" then
@@ -55,8 +54,13 @@ local function build_spec(args)
 	if position.type == "file" then
 		table.insert(filters, "/" .. position.name)
 	elseif position.type == "namespace" then
-		table.insert(filters, '".' .. position.name .. '$"')
-	elseif position.type == "test" or position.type == "dir" and position.name ~= cwd then
+		table.insert(filters, "." .. position.name .. "$")
+	elseif position.type == "test" then
+		local namespace, test = string.match(position.id, ".*::(.-)::(.-)$")
+		if namespace ~= nil and test ~= nil then
+			table.insert(filters, namespace .. "." .. test)
+		end
+	elseif position.type == "dir" and position.name ~= cwd then
 		table.insert(filters, position.name)
 	end
 
@@ -81,8 +85,9 @@ end
 ---@param output string[]
 ---@param position neotest.Position
 ---@param failure_message string
+---@param test_name string
 ---@return integer?
-local function parse_errors(output, position, failure_message)
+local function parse_errors(output, position, failure_message, test_name)
 	local pattern = "Test (%w+)%(%) recorded an issue at ([%w-_]+%.swift):(%d+):%d+: (.+)"
 	for _, line in ipairs(output) do
 		local method, file, line_number, message = line:match(pattern)
@@ -90,8 +95,18 @@ local function parse_errors(output, position, failure_message)
 			logger.debug(
 				"Method: " .. method .. " File: " .. file .. " Line: " .. line_number .. " Message: " .. message
 			)
+			logger.debug(
+				"[PARSE ERRORS] Position: "
+					.. position.name
+					.. " Test case: "
+					.. test_name
+					.. " Path "
+					.. position.path
+					.. " Message: "
+					.. failure_message
+			)
 
-			if method == position.name and vim.endswith(position.path, file) and message == failure_message then
+			if test_name == method and vim.endswith(position.path, file) and message == failure_message then
 				return line_number
 			end
 		end
@@ -164,12 +179,14 @@ local function results(spec, result, tree)
 					local r = {}
 
 					if testcase.failure then
-						local line_number = parse_errors(raw_output, test_position, testcase.failure._attr.message)
+						local msg = util.replace_first_occurrence(testcase.failure._attr.message, "&#8594;", "→")
+						local line_number =
+							parse_errors(raw_output, test_position, msg, util.get_prefix(testcase._attr.name, "("))
 						r = {
 							status = "failed",
 							errors = {
 								{
-									message = testcase.failure._attr.message,
+									message = msg,
 									line = line_number and tonumber(line_number) - 1 or nil, -- neovim lines are 0-indexed
 								},
 							},

@@ -38,7 +38,11 @@ M.trim_up_to_prefix = function(str, char)
 	return string.gsub(str, pattern, "")
 end
 
-local function get_prefix(str, char)
+---comment
+---@param str string
+---@param char string
+---@return string
+M.get_prefix = function(str, char)
 	local prefix = string.match(str, "^[^" .. char .. "]*")
 	return prefix
 end
@@ -107,7 +111,7 @@ M.find_position = function(list, class_name, test_name, cwd)
 		return nil
 	end
 	local prefix = cwd .. "/Tests/" .. module
-	local suffix = separator .. class .. separator .. get_prefix(test_name, "(")
+	local suffix = separator .. class .. separator .. M.get_prefix(test_name, "(")
 
 	logger.debug("prefix: " .. prefix)
 	logger.debug("suffix: " .. suffix)
