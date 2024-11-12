@@ -68,8 +68,8 @@ local function find_element_by_id(list, prefix, suffix)
 		local a = has_prefix(item.id, prefix)
 		local b = has_suffix(item.id, suffix)
 
-		logger.info("list.id: " .. item.id)
-		logger.info("predicate: " .. vim.inspect(a) .. " " .. vim.inspect(b))
+		logger.debug("list.id: " .. item.id)
+		logger.debug("predicate: " .. vim.inspect(a) .. " " .. vim.inspect(b))
 		if item.type == "test" and a and b then
 			return item
 		end
@@ -109,8 +109,8 @@ M.find_position = function(list, class_name, test_name, cwd)
 	local prefix = cwd .. "/Tests/" .. module
 	local suffix = separator .. class .. separator .. get_prefix(test_name, "(")
 
-	logger.info("prefix: " .. prefix)
-	logger.info("suffix: " .. suffix)
+	logger.debug("prefix: " .. prefix)
+	logger.debug("suffix: " .. suffix)
 
 	return find_element_by_id(list, prefix, suffix)
 end
