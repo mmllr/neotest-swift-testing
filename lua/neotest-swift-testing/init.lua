@@ -84,34 +84,39 @@ end
 ---comment
 ---@param output string[]
 ---@param position neotest.Position
----@param failure_message string
 ---@param test_name string
----@return integer?
-local function parse_errors(output, position, failure_message, test_name)
+---@return integer?, string?
+local function parse_errors(output, position, test_name)
 	local pattern = "Test (%w+)%(%) recorded an issue at ([%w-_]+%.swift):(%d+):%d+: (.+)"
+	local pattern_with_arguments =
+		"Test (%w+)%b() recorded an issue with 1 argument value → (.+) at ([%w-_]+%.swift):(%d+):%d+: (.+)"
 	for _, line in ipairs(output) do
 		local method, file, line_number, message = line:match(pattern)
 		if method and file and line_number and message then
-			logger.debug(
-				"Method: " .. method .. " File: " .. file .. " Line: " .. line_number .. " Message: " .. message
-			)
-			logger.debug(
-				"[PARSE ERRORS] Position: "
-					.. position.name
-					.. " Test case: "
-					.. test_name
-					.. " Path "
-					.. position.path
-					.. " Message: "
-					.. failure_message
-			)
-
-			if test_name == method and vim.endswith(position.path, file) and message == failure_message then
-				return line_number
+			if test_name == method and vim.endswith(position.path, file) then
+				return tonumber(line_number) - 1 or nil, message
+			end
+		end
+		method, _, file, line_number, message = line:match(pattern_with_arguments)
+		logger.debug(
+			"Method: "
+				.. vim.inspect(method)
+				.. " Test Name: "
+				.. vim.inspect(test_name)
+				.. " File: "
+				.. vim.inspect(file)
+				.. " Line: "
+				.. vim.inspect(line_number)
+				.. " Message: "
+				.. vim.inspect(message)
+		)
+		if method and file and line_number and message then
+			if test_name == method and vim.endswith(position.path, file) then
+				return tonumber(line_number) - 1 or nil, message
 			end
 		end
 	end
-	return nil
+	return nil, nil
 end
 
 ---@param spec neotest.RunSpec
@@ -176,28 +181,22 @@ local function results(spec, result, tree)
 			for _, testcase in ipairs(testcases) do
 				local test_position = util.find_position(nodes, testcase._attr.classname, testcase._attr.name, spec.cwd)
 				if test_position ~= nil then
-					local r = {}
-
 					if testcase.failure then
-						local msg = util.replace_first_occurrence(testcase.failure._attr.message, "&#8594;", "→")
-						local line_number =
-							parse_errors(raw_output, test_position, msg, util.get_prefix(testcase._attr.name, "("))
-						r = {
+						local line_number, error_message =
+							parse_errors(raw_output, test_position, util.get_prefix(testcase._attr.name, "("))
+						test_results[test_position.id] = {
 							status = "failed",
-							errors = {
-								{
-									message = msg,
-									line = line_number and tonumber(line_number) - 1 or nil, -- neovim lines are 0-indexed
-								},
-							},
 						}
+						if line_number and error_message then
+							test_results[test_position.id].errors = {
+								{ line = line_number, message = error_message },
+							}
+						end
 					else
-						r = {
+						test_results[test_position.id] = {
 							status = "passed",
 						}
 					end
-
-					test_results[test_position.id] = r
 				else
 					logger.info("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
 				end
