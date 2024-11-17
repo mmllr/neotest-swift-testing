@@ -42,13 +42,100 @@ local treesitter_query = [[
 
 ]]
 
+--- @param test_name string
+--- @param dap_args? table
+--- @return table | nil
+local function get_dap_config(test_name, bundle_name, dap_args)
+	-- :help dap-configuration
+	return vim.tbl_extend("force", {
+		type = "swift",
+		request = "launch",
+		mode = "test",
+		program = "/Applications/Xcode-16.1.app/Contents/Developer/usr/bin/xctest",
+		args = { "-XCTest", test_name, bundle_name },
+		stopOnEntry = false,
+		waitfor = true,
+	}, dap_args or { port = 13000 })
+end
+
+-- @return vim.SystemObj
+local function swift_package_describe()
+	local describe_cmd = { "swift", "package", "describe" }
+	local describe_cmd_string = table.concat(describe_cmd, " ")
+	logger.debug("Running swift package describe: " .. describe_cmd_string)
+	local result = vim.system(describe_cmd, { text = true }):wait()
+
+	local err = nil
+	if result.code == 1 then
+		err = "swift package describe:"
+		if result.stdout ~= nil and result.stdout ~= "" then
+			err = err .. " " .. result.stdout
+		end
+		if result.stdout ~= nil and result.stderr ~= "" then
+			err = err .. " " .. result.stderr
+		end
+		logger.error({ "Swift package describe error: ", err })
+	end
+	return result
+end
+
+-- @return neotest.RunSpec
 ---@param args neotest.RunArgs
 ---@return neotest.RunSpec | neotest.RunSpec[] | nil
 local function build_spec(args)
+	if not args.tree then
+		logger.error("Unexpectedly did not receive a neotest.Tree.")
+		return
+	end
 	local position = args.tree:data()
 	local junit_folder = async.fn.tempname()
 	local cwd = assert(get_root(position.path), "could not locate root directory of " .. position.path)
-	local command = { "swift", "test", "--enable-swift-testing", "--xunit-output", junit_folder .. ".junit.xml", "-q" }
+	local command = {
+		"swift",
+		"test",
+		"--enable-swift-testing",
+		"-c",
+		"debug",
+		-- "--xunit-output",
+		-- junit_folder .. ".junit.xml",
+		-- "-q",
+	}
+
+	if args.strategy == "dap" then
+		-- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
+		local class_name, test_name = string.match(position.id, ".*::(.-)::(.-)$")
+		if class_name == nil or test_name == nil then
+			logger.error("Could not extract class_name and test_name from position.id: " .. position.id)
+			return
+		end
+
+		local full_test_name = class_name .. "/" .. test_name
+		local describe_result = swift_package_describe()
+		local describe_output = describe_result.stdout or ""
+		local package_name
+		for line in describe_output:gmatch("[^\r\n]+") do
+			logger.info("Got line: " .. line)
+			-- Search for first line line containing Name: hello
+			package_name = string.match(line, 'Name:%s*([^"]+)')
+			if package_name then
+				break
+			end
+		end
+
+		if not package_name then
+			logger.error("Swift packageName not found.")
+		end
+
+		local test_bundle = cwd .. "/.build/debug/" .. package_name .. "PackageTests.xctest"
+		local strategy_config = get_dap_config(full_test_name, test_bundle)
+		logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
+		return {
+			command = command,
+			cwd = get_root(position.path),
+			context = { is_dap_active = true, pos_id = position.id },
+			strategy = strategy_config,
+		}
+	end
 
 	local filters = {}
 	if position.type == "file" then
@@ -133,6 +220,12 @@ local function results(spec, result, tree)
 		test_results[spec.context.position_id] = {
 			status = "failed",
 			errors = spec.context.errors,
+		}
+		return test_results
+	elseif spec.context and spec.context.is_dap_active and spec.context.pos_id then
+		-- return early if test result processing is not desired.
+		test_results[spec.context.pos_id] = {
+			status = "skipped",
 		}
 		return test_results
 	end
