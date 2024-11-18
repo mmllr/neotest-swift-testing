@@ -96,9 +96,9 @@ local function build_spec(args)
 		"--enable-swift-testing",
 		"-c",
 		"debug",
-		-- "--xunit-output",
-		-- junit_folder .. ".junit.xml",
-		-- "-q",
+		"--xunit-output",
+		junit_folder .. ".junit.xml",
+		"-q",
 	}
 
 	if args.strategy == "dap" then
