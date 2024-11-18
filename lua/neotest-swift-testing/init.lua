@@ -46,15 +46,19 @@ local treesitter_query = [[
 --- @param dap_args? table
 --- @return table | nil
 local function get_dap_config(test_name, bundle_name, dap_args)
-	-- :help dap-configuration
+	local xcode_path = util.get_xcode_path()
+	if xcode_path == nil then
+		logger.error("Could not find Xcode.")
+		return nil
+	end
 	return vim.tbl_extend("force", {
 		type = "swift",
 		request = "launch",
 		mode = "test",
-		program = "/Applications/Xcode-16.1.app/Contents/Developer/usr/bin/xctest",
-		args = { "-XCTest", test_name, bundle_name },
-		stopOnEntry = false,
+		program = xcode_path .. "/usr/bin/xctest",
+		args = { bundle_name },
 		waitfor = true,
+		port = 13000,
 	}, dap_args or { port = 13000 })
 end
 

@@ -119,4 +119,18 @@ M.find_position = function(list, class_name, test_name, cwd)
 	return find_element_by_id(list, prefix, suffix)
 end
 
+---Returns the path to the Xcode app or nil.
+---@return string?
+M.get_xcode_path = function()
+	local xcode_select = { "xcode-select", "-p" }
+	local xcode_select_output = vim.system(xcode_select, { text = true }):wait()
+
+	if xcode_select_output.code ~= 0 and xcode_select_output.stdout ~= nil then
+		logger.error("Could not find Xcode.")
+		return nil
+	end
+	local stripped = string.gsub(xcode_select_output.stdout, "\n$", "")
+	return stripped
+end
+
 return M
