@@ -52,14 +52,13 @@ local function get_dap_config(test_name, bundle_name, dap_args)
 		return nil
 	end
 	return vim.tbl_extend("force", {
-		type = "swift",
+		type = "lldb",
 		request = "launch",
 		mode = "test",
 		program = xcode_path .. "/usr/bin/xctest",
 		args = { bundle_name },
 		waitfor = true,
-		port = 13000,
-	}, dap_args or { port = 13000 })
+	}, dap_args or {})
 end
 
 -- @return vim.SystemObj

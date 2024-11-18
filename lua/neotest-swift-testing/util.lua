@@ -126,7 +126,6 @@ M.get_xcode_path = function()
 	local xcode_select_output = vim.system(xcode_select, { text = true }):wait()
 
 	if xcode_select_output.code ~= 0 and xcode_select_output.stdout ~= nil then
-		logger.error("Could not find Xcode.")
 		return nil
 	end
 	local stripped = string.gsub(xcode_select_output.stdout, "\n$", "")
