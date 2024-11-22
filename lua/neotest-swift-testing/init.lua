@@ -60,10 +60,14 @@ local function get_dap_config(test_name, bundle_name, dap_args)
 		waitfor = true,
 	}, dap_args or {})
 end
-
+---comment Parse the output of swift package describe
+---@param package_directory string
+---@return vim.SystemCompleted
 -- @return vim.SystemObj
-local function swift_package_describe()
-	local describe_cmd = { "swift", "package", "describe" }
+local function swift_package_describe(package_directory)
+	logger.debug("Directory package_directory: " .. vim.inspect(package_directory))
+	local describe_cmd = { "swift", "package", "--package-path", package_directory, "describe" }
+
 	local describe_cmd_string = table.concat(describe_cmd, " ")
 	logger.debug("Running swift package describe: " .. describe_cmd_string)
 	local result = vim.system(describe_cmd, { text = true }):wait()
@@ -113,7 +117,7 @@ local function build_spec(args)
 		end
 
 		local full_test_name = class_name .. "/" .. test_name
-		local describe_result = swift_package_describe()
+		local describe_result = swift_package_describe(cwd)
 		local describe_output = describe_result.stdout or ""
 		local package_name
 		for line in describe_output:gmatch("[^\r\n]+") do
