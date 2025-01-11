@@ -6,9 +6,9 @@ local logger = require("neotest-swift-testing.logging")
 local M = {}
 local separator = "::"
 
----comment
----@param file string
----@return boolean
+---Check if a file exists.
+---@param file string The file path.
+---@return boolean True if the file exists, false otherwise.
 M.file_exists = function(file)
 	local f = io.open(file, "r")
 
@@ -20,6 +20,10 @@ M.file_exists = function(file)
 	end
 end
 
+---Replace the first occurrence of a character in a string.
+---@param str string The string.
+---@param char string The character to replace.
+---@param replacement string The replacement character.
 M.replace_first_occurrence = function(str, char, replacement)
 	return string.gsub(str, char, replacement, 1)
 end
@@ -38,7 +42,7 @@ M.trim_up_to_prefix = function(str, char)
 	return string.gsub(str, pattern, "")
 end
 
----comment
+---Get the prefix of a string.
 ---@param str string
 ---@param char string
 ---@return string
@@ -47,7 +51,7 @@ M.get_prefix = function(str, char)
 	return prefix
 end
 
---comment
+---Get the suffix of a string.
 ---@param str string
 ---@param prefix string
 ---@return boolean
@@ -55,7 +59,7 @@ local function has_prefix(str, prefix)
 	return str:sub(1, #prefix) == prefix
 end
 
----comment
+---Check if a string has a suffix.
 ---@param str string
 ---@param suffix string
 ---@return boolean

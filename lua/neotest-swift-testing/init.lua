@@ -60,6 +60,7 @@ local function get_dap_config(test_name, bundle_name, dap_args)
 		waitfor = true,
 	}, dap_args or {})
 end
+
 ---comment Parse the output of swift package describe
 ---@param package_directory string
 ---@return vim.SystemCompleted
@@ -122,7 +123,7 @@ local function build_spec(args)
 		local package_name
 		for line in describe_output:gmatch("[^\r\n]+") do
 			logger.info("Got line: " .. line)
-			-- Search for first line line containing Name: hello
+			-- Search for first line line containing Name: test name
 			package_name = string.match(line, 'Name:%s*([^"]+)')
 			if package_name then
 				break
@@ -175,11 +176,12 @@ local function build_spec(args)
 		cwd = cwd,
 	}
 end
----comment
----@param output string[]
----@param position neotest.Position
----@param test_name string
----@return integer?, string?
+
+---Parse the output of swift test to get the line number and error message
+---@param output string[] The output of the swift test command
+---@param position neotest.Position The position of the test
+---@param test_name string The name of the test
+---@return integer?, string? The line number and error message. nil if not found
 local function parse_errors(output, position, test_name)
 	local pattern = "Test (%w+)%(%) recorded an issue at ([%w-_]+%.swift):(%d+):%d+: (.+)"
 	local pattern_with_arguments =
@@ -333,7 +335,7 @@ return {
 		return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
 	end,
 	discover_positions = function(file_path)
-		return lib.treesitter.parse_positions(file_path, treesitter_query, {})
+		return lib.treesitter.parse_positions(file_path, treesitter_query, { nested_namespaces = true })
 	end,
 	build_spec = build_spec,
 	results = results,
