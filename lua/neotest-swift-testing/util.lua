@@ -7,17 +7,12 @@ local M = {}
 local separator = "::"
 
 ---Check if a file exists.
+---@async
 ---@param file string The file path.
 ---@return boolean True if the file exists, false otherwise.
 M.file_exists = function(file)
-  local f = io.open(file, "r")
-
-  if f ~= nil then
-    io.close(f)
-    return true
-  else
-    return false
-  end
+  local err, tbl = async.uv.fs_stat(file)
+  return tbl ~= nil
 end
 
 ---Replace the first occurrence of a character in a string.
