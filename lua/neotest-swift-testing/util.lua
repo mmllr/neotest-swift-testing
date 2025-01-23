@@ -46,30 +46,14 @@ M.get_prefix = function(str, char)
   return prefix
 end
 
----Get the suffix of a string.
----@param str string
----@param prefix string
----@return boolean
-local function has_prefix(str, prefix)
-  return str:sub(1, #prefix) == prefix
-end
-
----Check if a string has a suffix.
----@param str string
----@param suffix string
----@return boolean
-local function has_suffix(str, suffix)
-  return str == "" or str:sub(-#suffix) == suffix
-end
-
 ---@param list neotest.Position[]
 ---@param prefix string
 ---@param suffix string
 ---@return neotest.Position?
 local function find_element_by_id(list, prefix, suffix)
   for _, item in ipairs(list) do
-    local a = has_prefix(item.id, prefix)
-    local b = has_suffix(item.id, suffix)
+    local a = vim.startswith(item.id, prefix)
+    local b = vim.endswith(item.id, suffix)
 
     logger.debug("list.id: " .. item.id)
     logger.debug("predicate: " .. vim.inspect(a) .. " " .. vim.inspect(b))
