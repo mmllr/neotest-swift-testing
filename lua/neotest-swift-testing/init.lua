@@ -1,8 +1,5 @@
 local lib = require("neotest.lib")
 local async = require("neotest.async")
-local context_manager = require("plenary.context_manager")
-local open = context_manager.open
-local with = context_manager.with
 local xml = require("neotest.lib.xml")
 local util = require("neotest-swift-testing.util")
 local Path = require("plenary.path")
@@ -58,31 +55,29 @@ local function get_dap_config(test_name, bundle_name, dap_args)
 end
 
 ---Parse the output of swift package describe
+---@async
 ---@param package_directory string
----@return vim.SystemCompleted
--- @return vim.SystemObj
+-- @return string|nil
 local function swift_package_describe(package_directory)
   logger.debug("Directory package_directory: " .. vim.inspect(package_directory))
-  local describe_cmd = { "swift", "package", "--package-path", package_directory, "describe" }
 
   local describe_cmd_string = table.concat(describe_cmd, " ")
   logger.debug("Running swift package describe: " .. describe_cmd_string)
-  local result = vim.system(describe_cmd, { text = true }):wait()
-
-  local err = nil
-  if result.code == 1 then
-    err = "swift package describe:"
-    if result.stdout ~= nil and result.stdout ~= "" then
-      err = err .. " " .. result.stdout
-    end
-    if result.stdout ~= nil and result.stderr ~= "" then
-      err = err .. " " .. result.stderr
-    end
-    logger.error({ "Swift package describe error: ", err })
+  local result = async.process.run({
+    cmd = "swift",
+    args = { "package", "--package-path", package_directory, "describe" },
+    cwd = package_directory,
+  })
+  if not result then
+    logger.error("Failed to run swift package describe.")
+    return nil
   end
-  return result
+  local output = result.stdout.read()
+  result.close()
+  return output
 end
 
+---@async
 --@param args neotest.RunArgs
 --@return neotest.RunSpec | neotest.RunSpec[] | nil
 --@return neotest.RunSpec
@@ -115,7 +110,7 @@ local function build_spec(args)
 
     local full_test_name = class_name .. "/" .. test_name
     local describe_result = swift_package_describe(cwd)
-    local describe_output = describe_result.stdout or ""
+    local describe_output = describe_result or ""
     local package_name
     for line in describe_output:gmatch("[^\r\n]+") do
       logger.info("Got line: " .. line)
@@ -174,6 +169,7 @@ local function build_spec(args)
 end
 
 ---Parse the output of swift test to get the line number and error message
+---@async
 ---@param output string[] The output of the swift test command
 ---@param position neotest.Position The position of the test
 ---@param test_name string The name of the test
@@ -211,6 +207,7 @@ local function parse_errors(output, position, test_name)
   return nil, nil
 end
 
+---@async
 ---@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
@@ -250,12 +247,20 @@ local function results(spec, result, tree)
 
   if util.file_exists(spec.context.results_path) then
     logger.debug("Results junit.xml: " .. spec.context.results_path)
-    local data
-    with(open(spec.context.results_path, "r"), function(reader)
-      data = reader:read("*a")
-    end)
+    local data = async.file.open(spec.context.results_path)
 
-    local root = xml.parse(data)
+    if data == nil then
+      logger.error("Failed to open file: " .. spec.context.results_path)
+      return {}
+    end
+    local content, error = data.read(nil, 0)
+    data.close()
+    if content == nil then
+      logger.error("Failed to read file: " .. spec.context.results_path)
+      return {}
+    end
+
+    local root = xml.parse(content)
 
     local testsuites
     if root.testsuites.testsuite == nil then
@@ -320,7 +325,7 @@ return {
   name = "neotest-swift-testing",
   root = get_root,
   filter_dir = function(name, rel_path, root)
-    return util.table_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
+    return vim.tbl_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
   end,
   is_test_file = function(file_path)
     if not vim.endswith(file_path, ".swift") then
