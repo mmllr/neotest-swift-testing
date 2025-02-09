@@ -40,18 +40,26 @@ local treesitter_query = [[
 
 ]]
 
+---@async
 ---@param test_name string
+---@param bundle_name string
 ---@param dap_args? table
 ---@return table | nil
 local function get_dap_config(test_name, bundle_name, dap_args)
-  return vim.tbl_extend("force", {
+  local result = async.wrap(util.run_job, 3)({ "xcrun", "-f", "xctest" }, nil)
+  if result.code ~= 0 or result.stderr ~= "" then
+    return nil
+  end
+  return {
+    name = "Swift Test debugger",
     type = "lldb",
     request = "launch",
-    mode = "test",
-    program = "xcrun",
-    args = { "xctest", bundle_name },
+    program = vim.trim(result.stdout),
+    args = { "-XCTest", test_name, bundle_name },
+    cwd = "${workspaceFolder}",
+    stopOnEntry = false,
     waitfor = true,
-  }, dap_args or {})
+  }
 end
 
 ---Parse the output of swift package describe
@@ -61,8 +69,6 @@ end
 local function swift_package_describe(package_directory)
   logger.debug("Directory package_directory: " .. vim.inspect(package_directory))
 
-  local describe_cmd_string = table.concat(describe_cmd, " ")
-  logger.debug("Running swift package describe: " .. describe_cmd_string)
   local result = async.process.run({
     cmd = "swift",
     args = { "package", "--package-path", package_directory, "describe" },

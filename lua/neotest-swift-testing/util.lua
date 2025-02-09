@@ -102,4 +102,15 @@ M.find_position = function(list, class_name, test_name, cwd)
   return find_element_by_id(list, prefix, suffix)
 end
 
+---Helper for executing external commands
+---@param cmd string[]
+---@param on_stdout fun(error: string?, data: string?)|nil
+---@param on_exit fun(obj: vim.SystemCompleted)
+function M.run_job(cmd, on_stdout, on_exit)
+  vim.system(cmd, {
+    text = true,
+    stdout = on_stdout or true,
+  }, on_exit)
+end
+
 return M
