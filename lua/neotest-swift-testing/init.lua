@@ -325,7 +325,7 @@ return {
   name = "neotest-swift-testing",
   root = get_root,
   filter_dir = function(name, rel_path, root)
-    return vim.tbl_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
+    return vim.list_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
   end,
   is_test_file = function(file_path)
     if not vim.endswith(file_path, ".swift") then
@@ -336,7 +336,11 @@ return {
     return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
   end,
   discover_positions = function(file_path)
-    return lib.treesitter.parse_positions(file_path, treesitter_query, { nested_namespaces = true })
+    return lib.treesitter.parse_positions(
+      file_path,
+      treesitter_query,
+      { nested_tests = true, require_namespaces = true }
+    )
   end,
   build_spec = build_spec,
   results = results,
