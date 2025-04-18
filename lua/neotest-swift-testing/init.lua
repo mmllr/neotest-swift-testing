@@ -50,7 +50,7 @@ local function get_dap_config(test_name, bundle_name, dap_args)
   if result.code ~= 0 or result.stderr ~= "" then
     return nil
   end
-  return {
+  return vim.tbl_extend("force", dap_args or {}, {
     name = "Swift Test debugger",
     type = "lldb",
     request = "launch",
@@ -59,19 +59,19 @@ local function get_dap_config(test_name, bundle_name, dap_args)
     cwd = "${workspaceFolder}",
     stopOnEntry = false,
     waitfor = true,
-  }
+  })
 end
 
----Parse the output of swift package describe
+---Finds the test target for a given file in the package directory
 ---@async
 ---@param package_directory string
--- @return string|nil
-local function swift_package_describe(package_directory)
-  logger.debug("Directory package_directory: " .. vim.inspect(package_directory))
-
+---@param file_name string
+-- @return string|nil The test target name or nil if not found
+local function find_test_target(package_directory, file_name)
+  logger.debug("Finding test target for file: " .. file_name)
   local result = async.process.run({
     cmd = "swift",
-    args = { "package", "--package-path", package_directory, "describe" },
+    args = { "package", "--package-path", package_directory, "describe", "--type", "json" },
     cwd = package_directory,
   })
   if not result then
@@ -80,7 +80,19 @@ local function swift_package_describe(package_directory)
   end
   local output = result.stdout.read()
   result.close()
-  return output
+
+  local decoded = vim.json.decode(output)
+  if not decoded then
+    logger.error("Failed to decode swift package describe output.")
+    return nil
+  end
+
+  for _, target in ipairs(decoded.targets) do
+    if target.type == "test" and target.sources and vim.list_contains(target.sources, file_name) then
+      return target.name
+    end
+  end
+  return nil
 end
 
 ---@async
@@ -107,35 +119,28 @@ local function build_spec(args)
   }
 
   if args.strategy == "dap" then
-    -- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
-    local class_name, test_name = string.match(position.id, ".*::(.-)::(.-)$")
-    if class_name == nil or test_name == nil then
-      logger.error("Could not extract class_name and test_name from position.id: " .. position.id)
+    -- id pattern /Users/name/project/Tests/ProjectTests/fileName.swift::className::testName
+    local file_name, class_name, test_name = position.id:match(".*/(.-%.swift)::(.-)::(.*)")
+
+    if file_name == nil or class_name == nil or test_name == nil then
+      logger.error("Could not extract file, class name and test name from position.id: " .. position.id)
       return
     end
 
-    local full_test_name = class_name .. "/" .. test_name
-    local describe_result = swift_package_describe(cwd)
-    local describe_output = describe_result or ""
-    local package_name
-    for line in describe_output:gmatch("[^\r\n]+") do
-      logger.info("Got line: " .. line)
-      -- Search for first line line containing Name: test name
-      package_name = string.match(line, 'Name:%s*([^"]+)')
-      if package_name then
-        break
-      end
+    local target = find_test_target(cwd, file_name)
+    if not target then
+      logger.error("Swift test target not found.")
     end
 
-    if not package_name then
-      logger.error("Swift packageName not found.")
-    end
-
-    local test_bundle = cwd .. "/.build/debug/" .. package_name .. "PackageTests.xctest"
+    local full_test_name = target .. "." .. class_name .. "/" .. test_name .. "()"
+    -- TODO: is there a better way to get the test bundle?
+    local test_bundle = cwd .. "/.build/apple/Products/Debug/" .. target .. ".xctest"
     local strategy_config = get_dap_config(full_test_name, test_bundle)
-    logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
     return {
-      command = command,
+      command = vim.tbl_extend("force", command, {
+        "--build-system",
+        "xcode",
+      }),
       cwd = get_root(position.path),
       context = { is_dap_active = true, pos_id = position.id },
       strategy = strategy_config,
