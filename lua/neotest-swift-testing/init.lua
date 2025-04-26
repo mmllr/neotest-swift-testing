@@ -157,7 +157,7 @@ local function build_spec(args)
     if namespace ~= nil and test ~= nil then
       table.insert(filters, namespace .. "." .. test)
     end
-  elseif position.type == "dir" and position.name ~= cwd then
+  elseif position.type == "dir" and position.path ~= cwd then
     table.insert(filters, position.name)
   end
 
