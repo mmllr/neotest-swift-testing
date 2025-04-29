@@ -114,7 +114,7 @@ local function build_spec(args)
     "-c",
     "debug",
     "--xunit-output",
-    junit_folder .. ".junit.xml",
+    junit_folder .. "junit.xml",
     "-q",
   }
 
@@ -170,7 +170,7 @@ local function build_spec(args)
   return {
     command = command,
     context = {
-      results_path = junit_folder .. ".junit-swift-testing.xml",
+      results_path = junit_folder .. "junit-swift-testing.xml",
     },
     cwd = cwd,
   }
