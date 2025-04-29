@@ -24,10 +24,10 @@ return {
     opts = function()
         local dap = require("dap")
         if not dap.adapters.lldb then
-            local xcode_path = vim.fn.trim(vim.fn.system("xcode-select -p"))
+            local lldb_dap_path = vim.fn.trim(vim.fn.system("xcrun -f lldb-dap"))
             dap.adapters.lldb = {
                 type = "executable",
-                command = xcode_path .. "/usr/bin/lldb-dap",
+                command = lldb_dap_path, -- adjust as needed, must be absolute path
                 name = "lldb",
             }
         end
