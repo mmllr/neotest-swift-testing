@@ -309,14 +309,14 @@ local function results(spec, result, tree)
             }
           end
         else
-          logger.info("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
+          logger.debug("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
         end
       end
     end
   else
     local output = result.output
 
-    logger.info("Context: " .. vim.inspect(spec.context))
+    logger.debug("Context: " .. vim.inspect(spec.context))
     if spec.context.position_id ~= nil then
       test_results[spec.context.position_id] = {
         status = "failed",
