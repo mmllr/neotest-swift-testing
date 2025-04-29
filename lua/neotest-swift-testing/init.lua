@@ -137,10 +137,7 @@ local function build_spec(args)
     local test_bundle = cwd .. "/.build/apple/Products/Debug/" .. target .. ".xctest"
     local strategy_config = get_dap_config(full_test_name, test_bundle)
     return {
-      command = vim.tbl_extend("force", command, {
-        "--build-system",
-        "xcode",
-      }),
+      command = { "swift", "build", "--build-tests", "--enable-swift-testing", "-c", "debug", "-build-system=xcode" },
       cwd = get_root(position.path),
       context = { is_dap_active = true, pos_id = position.id },
       strategy = strategy_config,
