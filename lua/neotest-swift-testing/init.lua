@@ -251,21 +251,17 @@ local function results(spec, result, tree)
   for _, node in ipairs(tests) do
     table.insert(nodes, node)
   end
-  logger.debug("Nodes: " .. vim.inspect(nodes))
   local raw_output = async.fn.readfile(result.output)
 
   if util.file_exists(spec.context.results_path) then
-    logger.debug("Results junit.xml: " .. spec.context.results_path)
     local data = async.file.open(spec.context.results_path)
 
     if data == nil then
-      logger.error("Failed to open file: " .. spec.context.results_path)
       return {}
     end
     local content, error = data.read(nil, 0)
     data.close()
     if content == nil then
-      logger.error("Failed to read file: " .. spec.context.results_path)
       return {}
     end
 
@@ -317,7 +313,6 @@ local function results(spec, result, tree)
   else
     local output = result.output
 
-    logger.debug("Context: " .. vim.inspect(spec.context))
     if spec.context.position_id ~= nil then
       test_results[spec.context.position_id] = {
         status = "failed",
@@ -325,7 +320,6 @@ local function results(spec, result, tree)
       }
     end
   end
-  logger.debug("Results: " .. vim.inspect(test_results))
   return test_results
 end
 
