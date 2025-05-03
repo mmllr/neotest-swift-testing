@@ -130,6 +130,7 @@ local function build_spec(args)
     local target = find_test_target(cwd, file_name)
     if not target then
       logger.error("Swift test target not found.")
+      return
     end
 
     local full_test_name = target .. "." .. class_name .. "/" .. test_name .. "()"
