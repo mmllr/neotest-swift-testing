@@ -44,7 +44,7 @@ local treesitter_query = [[
 ---@param test_name string
 ---@param bundle_name string
 ---@param dap_args? table
----@return table | nil
+---@return table|nil
 local function get_dap_config(test_name, bundle_name, dap_args)
   local result = async.wrap(util.run_job, 3)({ "xcrun", "-f", "xctest" }, nil)
   if result.code ~= 0 or result.stderr ~= "" then
@@ -66,7 +66,7 @@ end
 ---@async
 ---@param package_directory string
 ---@param file_name string
--- @return string|nil The test target name or nil if not found
+---@return string|nil The test target name or nil if not found
 local function find_test_target(package_directory, file_name)
   logger.debug("Finding test target for file: " .. file_name)
   local result = async.process.run({
@@ -96,27 +96,16 @@ local function find_test_target(package_directory, file_name)
 end
 
 ---@async
---@param args neotest.RunArgs
---@return neotest.RunSpec | neotest.RunSpec[] | nil
---@return neotest.RunSpec
+---@param args neotest.RunArgs
+---@return neotest.RunSpec | neotest.RunSpec[] | nil
 local function build_spec(args)
   if not args.tree then
     logger.error("Unexpectedly did not receive a neotest.Tree.")
-    return
+    return nil
   end
   local position = args.tree:data()
   local junit_folder = async.fn.tempname()
   local cwd = assert(get_root(position.path), "could not locate root directory of " .. position.path)
-  local command = {
-    "swift",
-    "test",
-    "--enable-swift-testing",
-    "-c",
-    "debug",
-    "--xunit-output",
-    junit_folder .. "junit.xml",
-    "-q",
-  }
 
   if args.strategy == "dap" then
     -- id pattern /Users/name/project/Tests/ProjectTests/fileName.swift::className::testName
@@ -145,6 +134,16 @@ local function build_spec(args)
     }
   end
 
+  local command = {
+    "swift",
+    "test",
+    "--enable-swift-testing",
+    "-c",
+    "debug",
+    "--xunit-output",
+    junit_folder .. "junit.xml",
+    "-q",
+  }
   local filters = {}
   if position.type == "file" then
     table.insert(filters, "/" .. position.name)
