@@ -41,28 +41,91 @@ local treesitter_query = [[
 ]]
 
 ---@async
+---@param cmd string[]
+---@return string|nil
+local function shell(cmd)
+  local code, result = lib.process.run(cmd, { stdout = true, stderr = true })
+  if code ~= 0 or result.stderr ~= "" or result.stdout == nil then
+    logger.error("Failed to run command: " .. vim.inspect(cmd) .. " " .. result.stderr)
+    return nil
+  end
+  return result.stdout
+end
+
+---Removes new line characters
+---@param str string
+---@return string
+local function remove_nl(str)
+  local trimmed, _ = string.gsub(str, "\n", "")
+  return trimmed
+end
+
+---Returns Xcode devoloper path
+---@async
+---@return string|nil
+local function get_dap_cmd()
+  local result = shell({ "xcode-select", "-p" })
+  if not result then
+    return nil
+  end
+  result = shell({ "fd", "swiftpm-testing-helper", remove_nl(result) })
+  if not result then
+    return nil
+  end
+  return remove_nl(result)
+end
+
+---@async
+---@return string[]|nil
+local function get_test_executable()
+  local bin_path = shell({ "swift", "build", "--show-bin-path" })
+  if not bin_path then
+    return nil
+  end
+  local json_path = remove_nl(bin_path) .. "/description.json"
+  if not lib.files.exists(json_path) then
+    return nil
+  end
+  local decoded = vim.json.decode(lib.files.read(json_path))
+  return decoded.builtTestProducts[1].binaryPath
+end
+
+---@async
 ---@param test_name string
----@param bundle_name string
 ---@param dap_args? table
 ---@return table|nil
-local function get_dap_config(test_name, bundle_name, dap_args)
-  local result = async.wrap(util.run_job, 3)({ "xcrun", "-f", "xctest" }, nil)
-  if result.code ~= 0 or result.stderr ~= "" then
+local function get_dap_config(test_name, dap_args)
+  local program = get_dap_cmd()
+  if program == nil then
+    logger.error("Failed to get the spm test helper path")
+    return nil
+  end
+  local executable = get_test_executable()
+  if not executable then
+    logger.error("Failed to get the test executable path")
     return nil
   end
   return vim.tbl_extend("force", dap_args or {}, {
     name = "Swift Test debugger",
     type = "lldb",
     request = "launch",
-    program = vim.trim(result.stdout),
-    args = { "-XCTest", test_name, bundle_name },
+    program = program,
+    args = {
+      "--test-bundle-path",
+      executable,
+      "--testing-library",
+      "swift-testing",
+      "--enable-swift-test",
+      "--filter",
+      test_name,
+    },
     cwd = "${workspaceFolder}",
     stopOnEntry = false,
-    waitfor = true,
   })
 end
 
 ---@async
+---@return integer
 local function ensure_test_bundle_is_build()
   local code, result = lib.process.run({
     "swift",
@@ -71,12 +134,11 @@ local function ensure_test_bundle_is_build()
     "--enable-swift-testing",
     "-c",
     "debug",
-    "--build-system=xcode",
   })
   if code ~= 0 then
     logger.debug("Failed to build test bundle: " .. result.stderr)
-    return nil
   end
+  return code
 end
 
 ---Finds the test target for a given file in the package directory
@@ -137,15 +199,16 @@ local function build_spec(args)
     end
 
     local full_test_name = target .. "." .. class_name .. "/" .. test_name .. "()"
-    -- TODO: is there a better way to get the test bundle?
-    local test_bundle = cwd .. "/.build/apple/Products/Debug/" .. target .. ".xctest"
-    ensure_test_bundle_is_build()
-    local strategy_config = get_dap_config(full_test_name, test_bundle)
+    if ensure_test_bundle_is_build() ~= 0 then
+      logger.error("Failed to build test bundle.")
+      return nil
+    end
+    local path = shell({ "xcrun", "--show-sdk-platform-path" }) or ""
     return {
-      command = { "swift", "build", "--build-tests", "--enable-swift-testing", "-c", "debug", "--build-system=xcode" },
-      cwd = get_root(position.path),
+      cwd = cwd,
       context = { is_dap_active = true, pos_id = position.id },
-      strategy = strategy_config,
+      strategy = get_dap_config(full_test_name),
+      env = { ["DYLD_FRAMEWORK_PATH"] = remove_nl(path) .. "/Developer/Library/Frameworks" },
     }
   end
 
