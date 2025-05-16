@@ -64,11 +64,16 @@ end
 
 ---@async
 local function ensure_test_bundle_is_build()
-  local result = async.wrap(util.run_job, 3)(
-    { "swift", "build", "--build-tests", "--enable-swift-testing", "-c", "debug", "--build-system=xcode" },
-    nil
-  )
-  if result.code ~= 0 then
+  local code, result = lib.process.run({
+    "swift",
+    "build",
+    "--build-tests",
+    "--enable-swift-testing",
+    "-c",
+    "debug",
+    "--build-system=xcode",
+  })
+  if code ~= 0 then
     logger.debug("Failed to build test bundle: " .. result.stderr)
     return nil
   end
@@ -81,19 +86,16 @@ end
 ---@return string|nil The test target name or nil if not found
 local function find_test_target(package_directory, file_name)
   logger.debug("Finding test target for file: " .. file_name)
-  local result = async.process.run({
-    cmd = "swift",
-    args = { "package", "--package-path", package_directory, "describe", "--type", "json" },
-    cwd = package_directory,
-  })
-  if not result then
+  local code, result = lib.process.run(
+    { "swift", "package", "--package-path", package_directory, "describe", "--type", "json" },
+    { stdout = true, stderr = true }
+  )
+  if code ~= 0 or result.stdout == nil then
     logger.error("Failed to run swift package describe.")
     return nil
   end
-  local output = result.stdout.read()
-  result.close()
 
-  local decoded = vim.json.decode(output)
+  local decoded = vim.json.decode(result.stdout)
   if not decoded then
     logger.error("Failed to decode swift package describe output.")
     return nil
