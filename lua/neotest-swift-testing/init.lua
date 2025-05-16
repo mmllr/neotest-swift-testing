@@ -139,9 +139,7 @@ local function build_spec(args)
     local full_test_name = target .. "." .. class_name .. "/" .. test_name .. "()"
     -- TODO: is there a better way to get the test bundle?
     local test_bundle = cwd .. "/.build/apple/Products/Debug/" .. target .. ".xctest"
-    if not lib.files.exists(test_bundle) then
-      ensure_test_bundle_is_build()
-    end
+    ensure_test_bundle_is_build()
     local strategy_config = get_dap_config(full_test_name, test_bundle)
     return {
       command = { "swift", "build", "--build-tests", "--enable-swift-testing", "-c", "debug", "--build-system=xcode" },
