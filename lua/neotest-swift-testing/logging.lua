@@ -56,7 +56,10 @@ function Logger.new(opts)
 end
 
 function Logger:set_level(level)
-  self._level = level
+  self._level = assert(
+    type(level) == "number" and level or vim.log.levels[tostring(level):upper()],
+    string.format("Log level must be one of (trace, debug, info, warn, error), got: %q", level)
+  )
 end
 
 return Logger.new({})
