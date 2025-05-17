@@ -49,4 +49,20 @@ describe("Swift testing adapter", function()
       assert.is_false(sut.is_test_file(name), "expected " .. name .. " to be a test file")
     end
   end)
+
+  describe("Build spec", function()
+    describe("DAP support", function()
+      it("builds when strategy is dap", function()
+        ---@type neotest.Tree
+        local tree = {}
+        ---@type neotest.RunArgs
+        local args = {
+          tree = tree,
+          extra_args = { "--test-args", "test" },
+          strategy = "dap",
+        }
+        sut.build_spec(args)
+      end)
+    end)
+  end)
 end)
