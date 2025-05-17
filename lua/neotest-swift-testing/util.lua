@@ -1,19 +1,6 @@
-local ok, async = pcall(require, "nio")
-if not ok then
-  async = require("neotest.async")
-end
 local logger = require("neotest-swift-testing.logging")
 local M = {}
 local separator = "::"
-
----Check if a file exists.
----@async
----@param file string The file path.
----@return boolean True if the file exists, false otherwise.
-M.file_exists = function(file)
-  local err, tbl = async.uv.fs_stat(file)
-  return tbl ~= nil
-end
 
 ---Replace the first occurrence of a character in a string.
 ---@param str string The string.
@@ -100,17 +87,6 @@ M.find_position = function(list, class_name, test_name, cwd)
   logger.debug("suffix: " .. suffix)
 
   return find_element_by_id(list, prefix, suffix)
-end
-
----Helper for executing external commands
----@param cmd string[]
----@param on_stdout fun(error: string?, data: string?)|nil
----@param on_exit fun(obj: vim.SystemCompleted)
-function M.run_job(cmd, on_stdout, on_exit)
-  vim.system(cmd, {
-    text = true,
-    stdout = on_stdout or true,
-  }, on_exit)
 end
 
 return M

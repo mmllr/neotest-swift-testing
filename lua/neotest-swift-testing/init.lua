@@ -147,17 +147,13 @@ end
 ---@param file_name string
 ---@return string|nil The test target name or nil if not found
 local function find_test_target(package_directory, file_name)
-  logger.debug("Finding test target for file: " .. file_name)
-  local code, result = lib.process.run(
-    { "swift", "package", "--package-path", package_directory, "describe", "--type", "json" },
-    { stdout = true, stderr = true }
-  )
-  if code ~= 0 or result.stdout == nil then
+  local result = shell({ "swift", "package", "--package-path", package_directory, "describe", "--type", "json" })
+  if result == nil then
     logger.error("Failed to run swift package describe.")
     return nil
   end
 
-  local decoded = vim.json.decode(result.stdout)
+  local decoded = vim.json.decode(result)
   if not decoded then
     logger.error("Failed to decode swift package describe output.")
     return nil
@@ -330,19 +326,8 @@ local function results(spec, result, tree)
   end
   local raw_output = async.fn.readfile(result.output)
 
-  if util.file_exists(spec.context.results_path) then
-    local data = async.file.open(spec.context.results_path)
-
-    if data == nil then
-      return {}
-    end
-    local content, error = data.read(nil, 0)
-    data.close()
-    if content == nil then
-      return {}
-    end
-
-    local root = xml.parse(content)
+  if lib.files.exists(spec.context.results_path) then
+    local root = xml.parse(lib.files.read(spec.context.results_path))
 
     local testsuites
     if root.testsuites.testsuite == nil then
