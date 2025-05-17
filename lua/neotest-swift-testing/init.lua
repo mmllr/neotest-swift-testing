@@ -6,6 +6,22 @@ local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
 
+local M = {
+  name = "neotest-swift-testing",
+  root = lib.files.match_root_pattern("Package.swift"),
+  filter_dir = function(name, rel_path, root)
+    return vim.list_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
+  end,
+  is_test_file = function(file_path)
+    if not vim.endswith(file_path, ".swift") then
+      return false
+    end
+    local elems = vim.split(file_path, Path.path.sep)
+    local file_name = elems[#elems]
+    return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
+  end,
+}
+
 -- Add filetype for swift until it gets added to plenary's built-in filetypes
 -- See https://github.com/nvim-lua/plenary.nvim?tab=readme-ov-file#plenaryfiletype for more information
 if filetype.detect_from_extension("swift") == "" then
@@ -13,8 +29,6 @@ if filetype.detect_from_extension("swift") == "" then
     extension = { ["swift"] = "swift" },
   })
 end
-
-local get_root = lib.files.match_root_pattern("Package.swift")
 
 local treesitter_query = [[
 ;; @Suite struct TestSuite
@@ -40,12 +54,16 @@ local treesitter_query = [[
 
 ]]
 
+M.discover_positions = function(file_path)
+  return lib.treesitter.parse_positions(file_path, treesitter_query, { nested_tests = true, require_namespaces = true })
+end
+
 ---@async
 ---@param cmd string[]
 ---@return string|nil
 local function shell(cmd)
   local code, result = lib.process.run(cmd, { stdout = true, stderr = true })
-  if code ~= 0 or result.stderr ~= "" or result.stdout == nil then
+  if code ~= 0 or result.stderr ~= nil or result.stdout == nil then
     logger.error("Failed to run command: " .. vim.inspect(cmd) .. " " .. result.stderr)
     return nil
   end
@@ -159,7 +177,7 @@ local function find_test_target(package_directory, file_name)
     return nil
   end
 
-  for _, target in ipairs(decoded.targets) do
+  for _, target in ipairs(decoded.targets or {}) do
     if target.type == "test" and target.sources and vim.list_contains(target.sources, file_name) then
       return target.name
     end
@@ -170,14 +188,14 @@ end
 ---@async
 ---@param args neotest.RunArgs
 ---@return neotest.RunSpec|neotest.RunSpec[]|nil
-local function build_spec(args)
+function M.build_spec(args)
   if not args.tree then
     logger.error("Unexpectedly did not receive a neotest.Tree.")
     return nil
   end
   local position = args.tree:data()
   local junit_folder = async.fn.tempname()
-  local cwd = assert(get_root(position.path), "could not locate root directory of " .. position.path)
+  local cwd = assert(M.root(position.path), "could not locate root directory of " .. position.path)
 
   if args.strategy == "dap" then
     -- id pattern /Users/name/project/Tests/ProjectTests/fileName.swift::className::testName
@@ -294,7 +312,7 @@ end
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
 ---@return table<string, neotest.Result>
-local function results(spec, result, tree)
+function M.results(spec, result, tree)
   local test_results = {}
   local nodes = {}
 
@@ -410,3 +428,5 @@ return {
   build_spec = build_spec,
   results = results,
 }
+
+return M
