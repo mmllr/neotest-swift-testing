@@ -1,5 +1,9 @@
 describe("Swift testing adapter", function()
-  local sut = require("neotest-swift-testing")
+  ---@type neotest.Adapter
+  local sut
+  setup(function()
+    sut = require("neotest-swift-testing")({ log_level = vim.log.levels.OFF })
+  end)
 
   it("Has a name", function()
     assert.is_equal("neotest-swift-testing", sut.name)

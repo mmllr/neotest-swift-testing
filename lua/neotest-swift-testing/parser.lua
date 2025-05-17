@@ -1,3 +1,4 @@
+local logger = require("neotest-swift-testing.logging")
 local M = {}
 
 ---@class SwiftTesting.SourceLocation
@@ -63,11 +64,20 @@ function M.parse(line)
   end)
 
   if not status then
-    print(string.format("Failed to parse JSON on line %s", result))
+    logger.error(string.format("Failed to parse JSON on line %s", result))
     return nil
   end
 
   return result
 end
+
+setmetatable(M, {
+  __call = function(_, opts)
+    if opts.log_level then
+      logger:set_level(opts.log_level)
+    end
+    return M
+  end,
+})
 
 return M

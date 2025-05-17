@@ -403,30 +403,13 @@ function M.results(spec, result, tree)
   return test_results
 end
 
----@type neotest.Adapter
-return {
-  name = "neotest-swift-testing",
-  root = get_root,
-  filter_dir = function(name, rel_path, root)
-    return vim.list_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
-  end,
-  is_test_file = function(file_path)
-    if not vim.endswith(file_path, ".swift") then
-      return false
+setmetatable(M, {
+  __call = function(_, opts)
+    if opts.log_level then
+      logger:set_level(opts.log_level)
     end
-    local elems = vim.split(file_path, Path.path.sep)
-    local file_name = elems[#elems]
-    return vim.endswith(file_name, "Test.swift") or vim.endswith(file_name, "Tests.swift")
+    return M
   end,
-  discover_positions = function(file_path)
-    return lib.treesitter.parse_positions(
-      file_path,
-      treesitter_query,
-      { nested_tests = true, require_namespaces = true }
-    )
-  end,
-  build_spec = build_spec,
-  results = results,
-}
+})
 
 return M

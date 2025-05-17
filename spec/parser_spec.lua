@@ -1,5 +1,5 @@
 describe("JSON Lines parser", function()
-  local sut = require("neotest-swift-testing/parser")
+  local sut = require("neotest-swift-testing/parser")({ log_level = vim.log.levels.OFF })
   it("Parses empty lines", function()
     local result = sut.parse("")
     assert.is_nil(result)
