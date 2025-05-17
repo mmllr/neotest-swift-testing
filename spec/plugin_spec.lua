@@ -1,9 +1,41 @@
+local Tree = require("neotest.types").Tree
+local lib = require("neotest.lib")
+
 describe("Swift testing adapter", function()
   ---@type neotest.Adapter
   local sut
   setup(function()
     sut = require("neotest-swift-testing")({ log_level = vim.log.levels.OFF })
   end)
+
+  ---@type table<string, table>
+  local stubbed_commands
+
+  before_each(function()
+    stubbed_commands = {}
+    lib.process.run = function(cmd, opts)
+      local key = table.concat(cmd, " ")
+      assert.is.is_not_nil(stubbed_commands[key], "Expected to find\n" .. key .. "\nin stubbed commands")
+      local p = stubbed_commands[key]
+      if p then
+        stubbed_commands[key] = nil
+        return p.code, { stdout = p.result }
+      end
+      return -1, nil
+    end
+  end)
+
+  after_each(function()
+    assert.are.same({}, stubbed_commands, "Expected all stubbed commands to be invoked")
+  end)
+
+  ---Stubs the result for a command.
+  ---@param cmd string
+  ---@param result string
+  ---@param code? integer
+  local function given(cmd, result, code)
+    stubbed_commands[cmd] = { result = result, code = code or 0 }
+  end
 
   it("Has a name", function()
     assert.is_equal("neotest-swift-testing", sut.name)
@@ -57,12 +89,27 @@ describe("Swift testing adapter", function()
   describe("Build spec", function()
     describe("DAP support", function()
       it("builds when strategy is dap", function()
+        ---@type neotest.Position
+        local file = {
+          id = "/Users/name/project/Tests/ProjectTests/fileName.swift::className::testName",
+          type = "dir",
+          name = "test",
+          path = "/neotest/client",
+          range = { 0, 0, 0, 0 },
+        }
         ---@type neotest.Tree
-        local tree = {}
+        local tree = Tree.from_list({ file }, function(pos)
+          return pos.id
+        end)
+        sut.root = function(p)
+          return "/project/root"
+        end
+
+        given("swift package --package-path /project/root describe --type json", "{}")
+
         ---@type neotest.RunArgs
         local args = {
           tree = tree,
-          extra_args = { "--test-args", "test" },
           strategy = "dap",
         }
         sut.build_spec(args)
