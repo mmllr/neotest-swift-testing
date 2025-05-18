@@ -1,0 +1,37 @@
+{
+  "dependencies": [],
+  "manifest_display_name": "MyPackage",
+  "name": "MyPackage",
+  "path": "/PathToPackage",
+  "platforms": [],
+  "products": [
+    {
+      "name": "MyPackage",
+      "targets": ["MyPackage"],
+      "type": {
+        "library": ["automatic"]
+      }
+    }
+  ],
+  "targets": [
+    {
+      "c99name": "MyPackageTests",
+      "module_type": "SwiftTarget",
+      "name": "MyPackageTests",
+      "path": "Tests/MyPackageTests",
+      "sources": ["MyPackageTests.swift"],
+      "target_dependencies": ["MyPackage"],
+      "type": "test"
+    },
+    {
+      "c99name": "MyPackage",
+      "module_type": "SwiftTarget",
+      "name": "MyPackage",
+      "path": "Sources/MyPackage",
+      "product_memberships": ["MyPackage"],
+      "sources": ["MyPackage.swift"],
+      "type": "library"
+    }
+  ],
+  "tools_version": "6.1"
+}

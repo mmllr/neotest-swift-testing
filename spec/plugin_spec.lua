@@ -1,6 +1,18 @@
 local Tree = require("neotest.types").Tree
 local lib = require("neotest.lib")
 
+local function load_file(filename)
+  local cwd = vim.fn.getcwd()
+  local path = cwd .. "/" .. filename
+  local file = io.open(path, "r")
+  if not file then
+    error("Could not open file: " .. path)
+  end
+  local content = file:read("*a")
+  file:close()
+  return content
+end
+
 describe("Swift testing adapter", function()
   ---@type neotest.Adapter
   local sut
@@ -88,10 +100,10 @@ describe("Swift testing adapter", function()
 
   describe("Build spec", function()
     describe("DAP support", function()
-      it("builds when strategy is dap", function()
+      it("build spec when strategy is dap", function()
         ---@type neotest.Position
         local file = {
-          id = "/Users/name/project/Tests/ProjectTests/fileName.swift::className::testName",
+          id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
           type = "dir",
           name = "test",
           path = "/neotest/client",
@@ -105,14 +117,33 @@ describe("Swift testing adapter", function()
           return "/project/root"
         end
 
-        given("swift package --package-path /project/root describe --type json", "{}")
-
+        given(
+          "swift package --package-path /project/root describe --type json",
+          load_file("spec/Fixtures/package_description.json")
+        )
+        given("swift build --build-tests --enable-swift-testing -c debug", "")
+        given("xcrun --show-sdk-platform-path", "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform")
+        given("xcode-select -p", "/Applications/Xcode.App/Contents/Developer")
+        given("fd swiftpm-testing-helper /Applications/Xcode.App/Contents/Developer", "/path/to/swiftpm-testing-helper")
+        given("swift build --show-bin-path", "/Users/name/project/.build/arm64-apple-macosx/debug")
         ---@type neotest.RunArgs
         local args = {
           tree = tree,
           strategy = "dap",
         }
-        sut.build_spec(args)
+
+        local result = sut.build_spec(args)
+
+        assert.are.same({
+          context = {
+            is_dap_active = true,
+            pos_id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+          },
+          cwd = "/project/root",
+          env = {
+            DYLD_FRAMEWORK_PATH = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+          },
+        }, result)
       end)
     end)
   end)
