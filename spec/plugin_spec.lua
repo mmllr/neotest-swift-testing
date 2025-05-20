@@ -103,18 +103,26 @@ describe("Swift testing adapter", function()
   end)
 
   describe("Build spec", function()
-    ---@type neotest.Position
-    local file = {
-      id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
-      type = "dir",
-      name = "testFunction",
-      path = "/neotest/client",
-      range = { 0, 0, 0, 0 },
-    }
-    ---@type neotest.Tree
-    local tree = Tree.from_list({ file }, function(pos)
-      return pos.id
-    end)
+    ---@param id string
+    ---@param type neotest.PositionType
+    ---@param name string
+    ---@param path? string
+    ---@return neotest.Tree
+    local function given_tree(id, type, name, path)
+      ---@type neotest.Position
+      local pos = {
+        id = id,
+        type = type,
+        name = name,
+        path = path or "/neotest/client",
+        range = { 0, 0, 0, 0 },
+      }
+      ---@type neotest.Tree
+      local tree = Tree.from_list({ pos }, function(pos)
+        return pos.id
+      end)
+      return tree
+    end
     before_each(function()
       sut.root = function(p)
         return "/project/root"
@@ -122,28 +130,99 @@ describe("Swift testing adapter", function()
     end)
 
     describe("Integrated strategy", function()
-      it("build spec when strategy is integrated", function()
+      ---@param filter string
+      ---@return string[]
+      local function expected_command(filter)
+        return {
+          "swift",
+          "test",
+          "--enable-swift-testing",
+          "-c",
+          "debug",
+          "--xunit-output",
+          "/temporary/path/junit.xml",
+          "-q",
+          "--filter",
+          filter,
+        }
+      end
+      it("directory filter", function()
         ---@type neotest.RunArgs
         local args = {
-          tree = tree,
+          tree = given_tree(
+            "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            "dir",
+            "folderName"
+          ),
           strategy = "integrated",
         }
-
         local result = sut.build_spec(args)
 
         assert.are.same({
-          command = {
-            "swift",
-            "test",
-            "--enable-swift-testing",
-            "-c",
-            "debug",
-            "--xunit-output",
-            "/temporary/path/junit.xml",
-            "-q",
-            "--filter",
-            "testFunction",
+          command = expected_command("folderName"),
+          cwd = "/project/root",
+          context = {
+            results_path = "/temporary/path/junit-swift-testing.xml",
           },
+        }, result)
+      end)
+
+      it("test filter", function()
+        ---@type neotest.RunArgs
+        local args = {
+          tree = given_tree(
+            "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            "test",
+            "testName()"
+          ),
+          strategy = "integrated",
+        }
+        local result = sut.build_spec(args)
+
+        assert.are.same({
+          command = expected_command("className.testName"),
+          cwd = "/project/root",
+          context = {
+            results_path = "/temporary/path/junit-swift-testing.xml",
+          },
+        }, result)
+      end)
+
+      it("namespace filter", function()
+        ---@type neotest.RunArgs
+        local args = {
+          tree = given_tree(
+            "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            "namespace",
+            "TestSuite"
+          ),
+          strategy = "integrated",
+        }
+        local result = sut.build_spec(args)
+
+        assert.are.same({
+          command = expected_command(".TestSuite$"),
+          cwd = "/project/root",
+          context = {
+            results_path = "/temporary/path/junit-swift-testing.xml",
+          },
+        }, result)
+      end)
+
+      it("file filter", function()
+        ---@type neotest.RunArgs
+        local args = {
+          tree = given_tree(
+            "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            "file",
+            "filename"
+          ),
+          strategy = "integrated",
+        }
+        local result = sut.build_spec(args)
+
+        assert.are.same({
+          command = expected_command("/filename"),
           cwd = "/project/root",
           context = {
             results_path = "/temporary/path/junit-swift-testing.xml",
@@ -151,6 +230,7 @@ describe("Swift testing adapter", function()
         }, result)
       end)
     end)
+
     describe("DAP support", function()
       it("build spec when strategy is dap", function()
         given(
@@ -161,10 +241,14 @@ describe("Swift testing adapter", function()
         given("xcrun --show-sdk-platform-path", "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform")
         given("xcode-select -p", "/Applications/Xcode.App/Contents/Developer")
         given("fd swiftpm-testing-helper /Applications/Xcode.App/Contents/Developer", "/path/to/swiftpm-testing-helper")
-        given("swift build --show-bin-path", "/Users/name/project/.build/arm64-apple-macosx/debug")
+        given("swift build --show-bin-path", "/Users/name/project/.build/arm-apple-macosx/debug")
         ---@type neotest.RunArgs
         local args = {
-          tree = tree,
+          tree = given_tree(
+            "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            "dir",
+            "folderName"
+          ),
           strategy = "dap",
         }
 
@@ -173,7 +257,7 @@ describe("Swift testing adapter", function()
         assert.are.same({
           context = {
             is_dap_active = true,
-            pos_id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            pos_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
           },
           cwd = "/project/root",
           env = {
