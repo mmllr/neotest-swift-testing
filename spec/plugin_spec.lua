@@ -1,5 +1,6 @@
 local Tree = require("neotest.types").Tree
 local lib = require("neotest.lib")
+local async = require("neotest.async")
 
 local function load_file(filename)
   local cwd = vim.fn.getcwd()
@@ -34,6 +35,9 @@ describe("Swift testing adapter", function()
         return p.code, { stdout = p.result }
       end
       return -1, nil
+    end
+    async.fn.tempname = function()
+      return "/temporary/path/"
     end
   end)
 
@@ -99,24 +103,56 @@ describe("Swift testing adapter", function()
   end)
 
   describe("Build spec", function()
+    ---@type neotest.Position
+    local file = {
+      id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+      type = "dir",
+      name = "testFunction",
+      path = "/neotest/client",
+      range = { 0, 0, 0, 0 },
+    }
+    ---@type neotest.Tree
+    local tree = Tree.from_list({ file }, function(pos)
+      return pos.id
+    end)
+    before_each(function()
+      sut.root = function(p)
+        return "/project/root"
+      end
+    end)
+
+    describe("Integrated strategy", function()
+      it("build spec when strategy is integrated", function()
+        ---@type neotest.RunArgs
+        local args = {
+          tree = tree,
+          strategy = "integrated",
+        }
+
+        local result = sut.build_spec(args)
+
+        assert.are.same({
+          command = {
+            "swift",
+            "test",
+            "--enable-swift-testing",
+            "-c",
+            "debug",
+            "--xunit-output",
+            "/temporary/path/junit.xml",
+            "-q",
+            "--filter",
+            "testFunction",
+          },
+          cwd = "/project/root",
+          context = {
+            results_path = "/temporary/path/junit-swift-testing.xml",
+          },
+        }, result)
+      end)
+    end)
     describe("DAP support", function()
       it("build spec when strategy is dap", function()
-        ---@type neotest.Position
-        local file = {
-          id = "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
-          type = "dir",
-          name = "test",
-          path = "/neotest/client",
-          range = { 0, 0, 0, 0 },
-        }
-        ---@type neotest.Tree
-        local tree = Tree.from_list({ file }, function(pos)
-          return pos.id
-        end)
-        sut.root = function(p)
-          return "/project/root"
-        end
-
         given(
           "swift package --package-path /project/root describe --type json",
           load_file("spec/Fixtures/package_description.json")
