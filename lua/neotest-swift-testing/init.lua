@@ -376,12 +376,11 @@ function M.results(spec, result, tree)
       end
     end
   else
-    local output = result.output
-
     if spec.context.position_id ~= nil then
       test_results[spec.context.position_id] = {
         status = "failed",
-        output = output,
+        output = result.output,
+        short = raw_output,
       }
     end
   end
