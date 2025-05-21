@@ -267,4 +267,35 @@ describe("Swift testing adapter", function()
       end)
     end)
   end)
+
+  describe("results", function()
+    it("failed build", function()
+      ---@type neotest.RunSpec
+      local spec = {
+        command = { "swift", "test" },
+        context = {
+          position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+          ---@type neotest.Error[]
+          errors = {
+            {
+              message = "Build error",
+              line = 42,
+            },
+          },
+        },
+      }
+
+      assert.are.same({
+        ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
+          status = "failed",
+          errors = {
+            {
+              message = "Build error",
+              line = 42,
+            },
+          },
+        },
+      }, sut.results(spec, {}, {}))
+    end)
+  end)
 end)
