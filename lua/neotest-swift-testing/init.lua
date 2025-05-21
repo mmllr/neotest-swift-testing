@@ -257,8 +257,6 @@ function M.build_spec(args)
     end
   end
 
-  logger.debug("Command: " .. table.concat(command, " "))
-
   return {
     command = command,
     context = {
@@ -286,18 +284,6 @@ local function parse_errors(output, position, test_name)
       end
     end
     method, _, file, line_number, message = line:match(pattern_with_arguments)
-    logger.debug(
-      "Method: "
-        .. vim.inspect(method)
-        .. " Test Name: "
-        .. vim.inspect(test_name)
-        .. " File: "
-        .. vim.inspect(file)
-        .. " Line: "
-        .. vim.inspect(line_number)
-        .. " Message: "
-        .. vim.inspect(message)
-    )
     if method and file and line_number and message then
       if test_name == method and vim.endswith(position.path, file) then
         return tonumber(line_number) - 1 or nil, message
@@ -317,7 +303,6 @@ function M.results(spec, result, tree)
   local nodes = {}
 
   if spec.context.errors ~= nil and #spec.context.errors > 0 then
-    logger.debug("Errors: " .. spec.context.errors)
     -- mark as failed if a non-test error occurred.
     test_results[spec.context.position_id] = {
       status = "failed",
