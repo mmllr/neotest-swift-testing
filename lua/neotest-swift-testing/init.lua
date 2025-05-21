@@ -220,7 +220,7 @@ function M.build_spec(args)
     local path = shell({ "xcrun", "--show-sdk-platform-path" }) or ""
     return {
       cwd = cwd,
-      context = { is_dap_active = true, pos_id = position.id },
+      context = { is_dap_active = true, position_id = position.id },
       strategy = get_dap_config(full_test_name),
       env = { ["DYLD_FRAMEWORK_PATH"] = remove_nl(path) .. "/Developer/Library/Frameworks" },
     }
@@ -309,9 +309,9 @@ function M.results(spec, result, tree)
       errors = spec.context.errors,
     }
     return test_results
-  elseif spec.context and spec.context.is_dap_active and spec.context.pos_id then
+  elseif spec.context and spec.context.is_dap_active and spec.context.position_id then
     -- return early if test result processing is not desired.
-    test_results[spec.context.pos_id] = {
+    test_results[spec.context.position_id] = {
       status = "skipped",
     }
     return test_results

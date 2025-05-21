@@ -257,7 +257,7 @@ describe("Swift testing adapter", function()
         assert.are.same({
           context = {
             is_dap_active = true,
-            pos_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+            position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
           },
           cwd = "/project/root",
           env = {
@@ -294,6 +294,23 @@ describe("Swift testing adapter", function()
               line = 42,
             },
           },
+        },
+      }, sut.results(spec, {}, {}))
+    end)
+
+    it("skips dap results", function()
+      ---@type neotest.RunSpec
+      local spec = {
+        command = { "swift", "test" },
+        context = {
+          position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+          is_dap_active = true,
+        },
+      }
+
+      assert.are.same({
+        ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
+          status = "skipped",
         },
       }, sut.results(spec, {}, {}))
     end)
