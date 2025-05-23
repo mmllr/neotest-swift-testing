@@ -1,4 +1,3 @@
-local logger = require("neotest-swift-testing.logging")
 local M = {}
 local separator = "::"
 
@@ -42,8 +41,6 @@ local function find_element_by_id(list, prefix, suffix)
     local a = vim.startswith(item.id, prefix)
     local b = vim.endswith(item.id, suffix)
 
-    logger.debug("list.id: " .. item.id)
-    logger.debug("predicate: " .. vim.inspect(a) .. " " .. vim.inspect(b))
     if item.type == "test" and a and b then
       return item
     end
@@ -82,9 +79,6 @@ M.find_position = function(list, class_name, test_name, cwd)
   end
   local prefix = cwd .. "/Tests/" .. module
   local suffix = separator .. class .. separator .. M.get_prefix(test_name, "(")
-
-  logger.debug("prefix: " .. prefix)
-  logger.debug("suffix: " .. suffix)
 
   return find_element_by_id(list, prefix, suffix)
 end
