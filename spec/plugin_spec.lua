@@ -15,6 +15,7 @@ local function load_file(filename)
 end
 
 describe("Swift testing adapter", function()
+  local it = async.tests.it
   ---@param id string
   ---@param type neotest.PositionType
   ---@param name string
@@ -147,7 +148,7 @@ describe("Swift testing adapter", function()
           filter,
         }
       end
-      it("directory filter", function()
+      it("Directory filter", function()
         ---@type neotest.RunArgs
         local args = {
           tree = given_tree(
@@ -168,7 +169,7 @@ describe("Swift testing adapter", function()
         }, result)
       end)
 
-      it("test filter", function()
+      it("Test filter", function()
         ---@type neotest.RunArgs
         local args = {
           tree = given_tree(
@@ -189,7 +190,7 @@ describe("Swift testing adapter", function()
         }, result)
       end)
 
-      it("namespace filter", function()
+      it("Namespace filter", function()
         ---@type neotest.RunArgs
         local args = {
           tree = given_tree(
@@ -210,7 +211,7 @@ describe("Swift testing adapter", function()
         }, result)
       end)
 
-      it("file filter", function()
+      it("File filter", function()
         ---@type neotest.RunArgs
         local args = {
           tree = given_tree(
@@ -269,13 +270,19 @@ describe("Swift testing adapter", function()
     end)
   end)
 
-  describe("results", function()
-    local tree = given_tree(
-      "/Users/name/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
-      "namespace",
-      "TestSuite"
-    )
-    it("failed build", function()
+  describe("Results method", function()
+    ---@type neotest.Tree
+    local tree
+    ---@type neotest.StrategyResult
+    local strategy_result
+    before_each(function()
+      tree = given_tree("/project/Tests/ProjectTests/MyPackageTests.swift::className::testName", "test", "testName()")
+      strategy_result = {
+        code = 0,
+        output = "output/error/log",
+      }
+    end)
+    it("Failed build", function()
       ---@type neotest.RunSpec
       local spec = {
         command = { "swift", "test" },
@@ -301,10 +308,10 @@ describe("Swift testing adapter", function()
             },
           },
         },
-      }, sut.results(spec, {}, tree))
+      }, sut.results(spec, strategy_result, tree))
     end)
 
-    it("skips dap results", function()
+    it("Skips dap results", function()
       ---@type neotest.RunSpec
       local spec = {
         command = { "swift", "test" },
@@ -318,10 +325,10 @@ describe("Swift testing adapter", function()
         ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
           status = "skipped",
         },
-      }, sut.results(spec, {}, tree))
+      }, sut.results(spec, strategy_result, tree))
     end)
 
-    it("fails when result_path is not found", function()
+    it("Fails when result_path is not found", function()
       lib.files.exists = function(path)
         assert.is_equal(path, "/temporary/path/junit-swift-testing.xml")
         return false
@@ -338,11 +345,6 @@ describe("Swift testing adapter", function()
           position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
         },
       }
-      ---@type neotest.StrategyResult
-      local result = {
-        code = 1,
-        output = "output/error/log",
-      }
 
       assert.are.same({
         ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
@@ -350,7 +352,7 @@ describe("Swift testing adapter", function()
           output = "output/error/log",
           short = "Output errors",
         },
-      }, sut.results(spec, result, tree))
+      }, sut.results(spec, strategy_result, tree))
     end)
   end)
 end)
