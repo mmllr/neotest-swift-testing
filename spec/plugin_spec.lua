@@ -74,7 +74,7 @@ describe("Swift testing adapter", function()
   ---@type neotest.Adapter
   local sut
   setup(function()
-    sut = require("neotest-swift-testing")({ log_level = vim.log.levels.DEBUG })
+    sut = require("neotest-swift-testing")({ log_level = vim.log.levels.OFF })
   end)
 
   teardown(function()
