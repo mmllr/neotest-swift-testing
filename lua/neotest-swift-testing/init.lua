@@ -371,7 +371,7 @@ function M.results(spec, result, tree)
             }
           end
         else
-          logger.debug("Position not found: " .. testcase._attr.classname .. " " .. testcase._attr.name)
+          logger.debug("Position not found: " .. testcase._attr.classname .. "/" .. testcase._attr.name)
         end
       end
     end
