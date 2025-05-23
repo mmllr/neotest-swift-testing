@@ -16,6 +16,7 @@ end
 
 describe("Swift testing adapter", function()
   local it = async.tests.it
+
   ---@param id string
   ---@param type neotest.PositionType
   ---@param name string
@@ -37,10 +38,47 @@ describe("Swift testing adapter", function()
     return tree
   end
 
+  ---@param code? integer
+  ---@param output? string
+  ---@return neotest.StrategyResult
+  local function given_strategy_result(code, output)
+    return {
+      code = code or 0,
+      output = output or "",
+    }
+  end
+
+  ---@type table<string, string>
+  local files = {}
+  ---@type table<string, boolean>
+  local files_exists = {}
+
+  local function stub_files()
+    local orig = lib.files.read
+
+    lib.files.read = function(path)
+      if files[path] ~= nil then
+        return files[path]
+      end
+      return orig(path)
+    end
+    local orig_exists = lib.files.exists
+    lib.files.exists = function(path)
+      if files_exists[path] ~= nil then
+        return files_exists[path]
+      end
+      return orig_exists(path)
+    end
+  end
+
   ---@type neotest.Adapter
   local sut
   setup(function()
-    sut = require("neotest-swift-testing")({ log_level = vim.log.levels.OFF })
+    sut = require("neotest-swift-testing")({ log_level = vim.log.levels.DEBUG })
+  end)
+
+  teardown(function()
+    sut = nil
   end)
 
   ---@type table<string, table>
@@ -50,7 +88,7 @@ describe("Swift testing adapter", function()
     stubbed_commands = {}
     lib.process.run = function(cmd, opts)
       local key = table.concat(cmd, " ")
-      assert.is.is_not_nil(stubbed_commands[key], "Expected to find\n" .. key .. "\nin stubbed commands")
+      assert.is_not_nil(stubbed_commands[key], "Expected to find\n" .. key .. "\nin stubbed commands")
       local p = stubbed_commands[key]
       if p then
         stubbed_commands[key] = nil
@@ -58,13 +96,19 @@ describe("Swift testing adapter", function()
       end
       return -1, nil
     end
+
+    ---@diagnostic disable-next-line: duplicate-set-field
     async.fn.tempname = function()
       return "/temporary/path/"
     end
+    files = {}
+    files_exists = {}
   end)
 
   after_each(function()
     assert.are.same({}, stubbed_commands, "Expected all stubbed commands to be invoked")
+    files = {}
+    files_exists = {}
   end)
 
   ---Stubs the result for a command.
@@ -73,6 +117,14 @@ describe("Swift testing adapter", function()
   ---@param code? integer
   local function given(cmd, result, code)
     stubbed_commands[cmd] = { result = result, code = code or 0 }
+  end
+
+  ---Stubs content for lib.files.read
+  ---@param path string
+  ---@param content? string
+  local function given_file(path, content)
+    files[path] = content
+    files_exists[path] = content ~= nil
   end
 
   it("Has a name", function()
@@ -277,10 +329,7 @@ describe("Swift testing adapter", function()
     local strategy_result
     before_each(function()
       tree = given_tree("/project/Tests/ProjectTests/MyPackageTests.swift::className::testName", "test", "testName()")
-      strategy_result = {
-        code = 0,
-        output = "output/error/log",
-      }
+      strategy_result = given_strategy_result(0, "/outputpath/log")
     end)
     it("Failed build", function()
       ---@type neotest.RunSpec
@@ -329,15 +378,9 @@ describe("Swift testing adapter", function()
     end)
 
     it("Fails when result_path is not found", function()
-      lib.files.exists = function(path)
-        assert.is_equal(path, "/temporary/path/junit-swift-testing.xml")
-        return false
-      end
-      lib.files.read = function(path)
-        assert.is_equal(path, "output/error/log")
-        return "Output errors"
-      end
-
+      given_file("/temporary/path/junit-swift-testing.xml", nil)
+      given_file("/outputpath/log", "Output errors")
+      stub_files()
       local spec = {
         command = { "swift", "test" },
         context = {
@@ -349,10 +392,37 @@ describe("Swift testing adapter", function()
       assert.are.same({
         ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
           status = "failed",
-          output = "output/error/log",
+          output = "/outputpath/log",
           short = "Output errors",
         },
       }, sut.results(spec, strategy_result, tree))
+    end)
+
+    it("Successful test run", function()
+      local results = [[
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="TestResults" errors="0" tests="83" failures="0" skipped="0" time="0.218349459">
+  <testcase name="testName()" classname="ProjectTests.className" time="1.000001"/>
+  </testsuite>
+  </testsuites>
+]]
+      given_file("/temporary/path/junit-swift-testing.xml", results)
+      given_file("/outputpath/log", "")
+      stub_files()
+      local spec = {
+        cwd = "/project",
+        command = { "swift", "test" },
+        context = {
+          results_path = "/temporary/path/junit-swift-testing.xml",
+          position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
+        },
+      }
+      assert.are.same({
+        ["/project/Tests/ProjectTests/MyPackageTests.swift::className::testName"] = {
+          status = "passed",
+        },
+      }, sut.results(spec, given_strategy_result(0, "/outputpath/log"), tree))
     end)
   end)
 end)
