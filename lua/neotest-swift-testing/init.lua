@@ -327,7 +327,7 @@ function M.results(spec, result, tree)
   for _, node in ipairs(tests) do
     table.insert(nodes, node)
   end
-  local raw_output = async.fn.readfile(result.output)
+  local raw_output = lib.files.read(result.output)
 
   if lib.files.exists(spec.context.results_path) then
     local root = xml.parse(lib.files.read(spec.context.results_path))

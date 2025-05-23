@@ -333,7 +333,7 @@ describe("Swift testing adapter", function()
         assert.is_equal(path, "/temporary/path/junit-swift-testing.xml")
         return false
       end
-      async.fn.readfile = function(path)
+      lib.files.read = function(path)
         assert.is_equal(path, "output/error/log")
         return "Output errors"
       end
