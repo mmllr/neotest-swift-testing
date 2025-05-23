@@ -327,7 +327,7 @@ function M.results(spec, result, tree)
   for _, node in ipairs(tests) do
     table.insert(nodes, node)
   end
-  local raw_output = lib.files.read(result.output)
+  local raw_output = lib.files.read_lines(result.output)
 
   if lib.files.exists(spec.context.results_path) then
     local root = xml.parse(lib.files.read(spec.context.results_path))
@@ -380,7 +380,7 @@ function M.results(spec, result, tree)
       test_results[spec.context.position_id] = {
         status = "failed",
         output = result.output,
-        short = raw_output,
+        short = table.concat(raw_output, "\n"),
       }
     end
   end
