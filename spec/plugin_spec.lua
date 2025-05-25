@@ -32,8 +32,8 @@ describe("Swift testing adapter", function()
       range = { 0, 0, 0, 0 },
     }
     ---@type neotest.Tree
-    local tree = Tree.from_list({ pos }, function(pos)
-      return pos.id
+    local tree = Tree.from_list({ pos }, function(p)
+      return p.id
     end)
     return tree
   end
@@ -106,7 +106,7 @@ describe("Swift testing adapter", function()
   end)
 
   after_each(function()
-    assert.are.same({}, stubbed_commands, "Expected all stubbed commands to be invoked")
+    assert.are.same({}, stubbed_commands, "Expected all stubbed commands to be invoked. Uninvoked commands:\n" .. vim.inspect(stubbed_commands))
     files = {}
     files_exists = {}
   end)
