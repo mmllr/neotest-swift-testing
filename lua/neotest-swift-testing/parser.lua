@@ -13,25 +13,18 @@ local M = {}
 
 ---@alias SwiftTesting.TestType "suite" | "function"
 
----@class SwiftTesting.TestSuite
+---@class SwiftTesting.Payload
 ---@field id string
 ---@field kind SwiftTesting.TestType
 ---@field sourceLocation SwiftTesting.SourceLocation
 ---@field name string
 ---@field diplayName? string
-
----@class SwiftTesting.TestFunction
----@field id string
----@field kind SwiftTesting.TestType
----@field sourceLocation SwiftTesting.SourceLocation
----@field name string
----@field displayName? string
----@field isParameterized boolean
+---@field isParameterized? boolean
 
 ---@class SwiftTesting.TestRecord
 ---@field version number
 ---@field kind SwiftTesting.RecordType
----@field payload SwiftTesting.TestSuite | SwiftTesting.TestFunction
+---@field payload SwiftTesting.Payload
 
 ---@alias SwiftTesting.EventKind "runStarted" | "testStarted" | "testCaseStarted" | "issueRecorded" | "testCaseEnded" | "testEnded" | "testSkipped" | "runEnded" | "valueAttached"
 
