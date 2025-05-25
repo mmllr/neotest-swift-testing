@@ -2,6 +2,7 @@ local lib = require("neotest.lib")
 local async = require("neotest.async")
 local xml = require("neotest.lib.xml")
 local util = require("neotest-swift-testing.util")
+local parser = require("neotest-swift-testing.parser")
 local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
@@ -54,10 +55,6 @@ local treesitter_query = [[
 
 ]]
 
-M.discover_positions = function(file_path)
-  return lib.treesitter.parse_positions(file_path, treesitter_query, { nested_tests = true, require_namespaces = true })
-end
-
 ---@async
 ---@param cmd string[]
 ---@return string|nil
@@ -68,6 +65,63 @@ local function shell(cmd)
     return nil
   end
   return result.stdout
+end
+
+---@param kind SwiftTesting.TestType
+---@return neotest.PositionType
+local function position_type(kind)
+  if kind == "suite" then
+    return "namespace"
+  else
+    return "test"
+  end
+end
+
+---@param record SwiftTesting.TestRecord
+---@return neotest.Position|nil
+local function position_from_record(record)
+  if record.kind == "test" and record.payload ~= nil then
+    ---@type neotest.Position
+    local pos = {
+      id = record.payload.id,
+      name = record.payload.name,
+      path = record.payload.sourceLocation._filePath,
+      type = position_type(record.payload.kind),
+      range = {
+        record.payload.sourceLocation.line,
+        record.payload.sourceLocation.column,
+        record.payload.sourceLocation.line,
+        record.payload.sourceLocation.column,
+      },
+    }
+    return pos
+  end
+  return nil
+end
+
+---@async
+---@param file_path string
+---@return neotest.Tree
+M.discover_positions = function(file_path)
+  -- local output = async.fn.tempname() .. "test-events.jsonl"
+  -- shell({ "swift", "test", "list", "--enable-swift-testing", "--event-stream-output-path", output })
+  -- local lines = lib.files.read_lines(output)
+  --
+  -- ---@type neotest.Position[]
+  -- local positions = {}
+  -- for _, line in ipairs(lines) do
+  --   local parsed = parser.parse(line)
+  --   if parsed ~= nil and parsed.kind == "test" then
+  --     local pos = position_from_record(parsed)
+  --     if pos ~= nil then
+  --       table.insert(positions, pos)
+  --     end
+  --   end
+  -- end
+  -- local Tree = require("neotest.types").Tree
+  -- logger.debug("Discovered positions: " .. vim.inspect(positions))
+  -- return Tree.from_list(positions, function(p)
+  return lib.treesitter.parse_positions(file_path, treesitter_query, { nested_tests = true, require_namespaces = true })
 end
 
 ---Removes new line characters

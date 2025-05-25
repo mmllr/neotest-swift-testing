@@ -425,4 +425,18 @@ describe("Swift testing adapter", function()
       }, sut.results(spec, given_strategy_result(0, "/outputpath/log"), tree))
     end)
   end)
+
+  describe("Test discovery", function()
+    it("discovers tests", function()
+      local path = vim.fn.getcwd() .. "/spec/fixtures/Tests/TargetTests/TargetTests.swift"
+      local output = "/temporary/path/test-events.jsonl"
+      local entry = [[
+{"kind":"test","payload":{"id":"MyPackageTests.example()\/MyPackageTests.swift:4:2","isParameterized":false,"kind":"function","name":"example()","sourceLocation":{"_filePath":"\/Users\/user\/MyPackage\/Tests\/MyPackageTests\/MyPackageTests.swift","column":2,"fileID":"MyPackageTests\/MyPackageTests.swift","line":4}},"version":0}
+      ]]
+      -- given("swift test list --enable-swift-testing --event-stream-output-path " .. output, "", 0)
+      -- given_file(output, entry)
+
+      -- assert.are.same({}, sut.discover_positions(path))
+    end)
+  end)
 end)
