@@ -82,6 +82,7 @@ end
 ---@async
 ---@return string|nil
 local function get_dap_cmd()
+  --  TODO: use swiftly
   local result = shell({ "xcode-select", "-p" })
   if not result then
     return nil
