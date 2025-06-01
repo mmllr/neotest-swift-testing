@@ -5,10 +5,13 @@ local util = require("neotest-swift-testing.util")
 local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
+local files = require("neotest.lib.file")
 
 local M = {
   name = "neotest-swift-testing",
-  root = lib.files.match_root_pattern("Package.swift"),
+  root = function(path)
+    return files.match_root_pattern("Package.swift")(path)
+  end,
   filter_dir = function(name, rel_path, root)
     return vim.list_contains({ "Sources", "build", ".git", ".build", ".git", ".swiftpm" }, name) == false
   end,
@@ -104,7 +107,7 @@ end
 M.discover_positions = function(file_path)
   -- local output = async.fn.tempname() .. "test-events.jsonl"
   -- shell({ "swift", "test", "list", "--enable-swift-testing", "--event-stream-output-path", output })
-  -- local lines = lib.files.read_lines(output)
+  -- local lines = files.read_lines(output)
   --
   -- ---@type neotest.Position[]
   -- local positions = {}
@@ -155,10 +158,10 @@ local function get_test_executable()
     return nil
   end
   local json_path = remove_nl(bin_path) .. "/description.json"
-  if not lib.files.exists(json_path) then
+  if not files.exists(json_path) then
     return nil
   end
-  local decoded = vim.json.decode(lib.files.read(json_path))
+  local decoded = vim.json.decode(files.read(json_path))
   return decoded.builtTestProducts[1].binaryPath
 end
 
@@ -381,10 +384,10 @@ function M.results(spec, result, tree)
   for _, node in ipairs(tests) do
     table.insert(nodes, node)
   end
-  local raw_output = lib.files.read_lines(result.output)
+  local raw_output = files.read_lines(result.output)
 
-  if lib.files.exists(spec.context.results_path) then
-    local root = xml.parse(lib.files.read(spec.context.results_path))
+  if files.exists(spec.context.results_path) then
+    local root = xml.parse(files.read(spec.context.results_path))
 
     local testsuites
     if root.testsuites.testsuite == nil then
