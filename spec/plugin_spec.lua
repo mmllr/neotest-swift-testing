@@ -191,6 +191,7 @@ describe("Swift testing adapter", function()
           "swift",
           "test",
           "--enable-swift-testing",
+          "--disable-xctest",
           "-c",
           "debug",
           "--xunit-output",
@@ -216,7 +217,7 @@ describe("Swift testing adapter", function()
           command = expected_command("folderName"),
           cwd = "/project/root",
           context = {
-            results_path = "/temporary/path/junit-swift-testing.xml",
+            results_path = "/temporary/path/junit.xml",
           },
         }, result)
       end)
@@ -237,7 +238,7 @@ describe("Swift testing adapter", function()
           command = expected_command("className.testName"),
           cwd = "/project/root",
           context = {
-            results_path = "/temporary/path/junit-swift-testing.xml",
+            results_path = "/temporary/path/junit.xml",
           },
         }, result)
       end)
@@ -258,7 +259,7 @@ describe("Swift testing adapter", function()
           command = expected_command(".TestSuite$"),
           cwd = "/project/root",
           context = {
-            results_path = "/temporary/path/junit-swift-testing.xml",
+            results_path = "/temporary/path/junit.xml",
           },
         }, result)
       end)
@@ -279,7 +280,7 @@ describe("Swift testing adapter", function()
           command = expected_command("/filename"),
           cwd = "/project/root",
           context = {
-            results_path = "/temporary/path/junit-swift-testing.xml",
+            results_path = "/temporary/path/junit.xml",
           },
         }, result)
       end)
@@ -291,7 +292,7 @@ describe("Swift testing adapter", function()
           "swift package --package-path /project/root describe --type json",
           load_file("spec/Fixtures/package_description.json")
         )
-        given("swift build --build-tests --enable-swift-testing -c debug", "")
+        given("swift build --build-tests --enable-swift-testing --disable-xctest -c debug", "")
         given("xcrun --show-sdk-platform-path", "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform")
         given("xcode-select -p", "/Applications/Xcode.App/Contents/Developer")
         given("fd swiftpm-testing-helper /Applications/Xcode.App/Contents/Developer", "/path/to/swiftpm-testing-helper")
@@ -384,7 +385,7 @@ describe("Swift testing adapter", function()
       local spec = {
         command = { "swift", "test" },
         context = {
-          results_path = "/temporary/path/junit-swift-testing.xml",
+          results_path = "/temporary/path/junit.xml",
           position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
         },
       }
@@ -407,14 +408,14 @@ describe("Swift testing adapter", function()
   </testsuite>
   </testsuites>
 ]]
-      given_file("/temporary/path/junit-swift-testing.xml", results)
+      given_file("/temporary/path/junit.xml", results)
       given_file("/outputpath/log", "")
       stub_files()
       local spec = {
         cwd = "/project",
         command = { "swift", "test" },
         context = {
-          results_path = "/temporary/path/junit-swift-testing.xml",
+          results_path = "/temporary/path/junit.xml",
           position_id = "/project/Tests/ProjectTests/MyPackageTests.swift::className::testName",
         },
       }

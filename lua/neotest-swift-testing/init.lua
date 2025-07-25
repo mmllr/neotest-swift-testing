@@ -207,6 +207,7 @@ local function ensure_test_bundle_is_build()
     "build",
     "--build-tests",
     "--enable-swift-testing",
+    "--disable-xctest",
     "-c",
     "debug",
   })
@@ -287,6 +288,7 @@ function M.build_spec(args)
     "swift",
     "test",
     "--enable-swift-testing",
+    "--disable-xctest",
     "-c",
     "debug",
     "--xunit-output",
@@ -317,7 +319,7 @@ function M.build_spec(args)
   return {
     command = command,
     context = {
-      results_path = junit_folder .. "junit-swift-testing.xml",
+      results_path = junit_folder .. "junit.xml",
     },
     cwd = cwd,
   }
