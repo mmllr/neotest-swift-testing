@@ -6,6 +6,42 @@ local Path = require("plenary.path")
 local logger = require("neotest-swift-testing.logging")
 local filetype = require("plenary.filetype")
 local files = require("neotest.lib.file")
+local nio = require("nio")
+
+---@alias Platform
+---| 'Linux'
+---| 'macOS'
+---| 'Windows'
+
+---Get os
+---@return Platform|nil
+local function get_os()
+  local os_type = vim.loop.os_uname().sysname
+  if os_type == "Linux" then
+    return "Linux"
+  elseif os_type == "Darwin" then
+    return "macOS"
+  elseif os_type == "Windows_NT" then
+    return "Windows"
+  else
+    return nil
+  end
+end
+
+---Helper for executing external commands
+---@param cmd string[]
+---@param on_stdout fun(err: string?, data: string?)|nil
+---@param on_exit fun(obj: vim.SystemCompleted)
+---@return vim.SystemObj|nil
+local function run_job(cmd, on_stdout, on_exit)
+  -- print("Running command: " .. table.concat(cmd, " "))
+  return vim.system(cmd, {
+    text = true,
+    stdout = on_stdout or true,
+  }, on_exit)
+end
+
+local run_job_async = nio.wrap(run_job, 3)
 
 local M = {
   name = "neotest-swift-testing",
@@ -61,12 +97,25 @@ local treesitter_query = [[
 ---@param cmd string[]
 ---@return string|nil
 local function shell(cmd)
-  local code, result = lib.process.run(cmd, { stdout = true, stderr = true })
-  if code ~= 0 or result.stderr ~= nil or result.stdout == nil then
-    logger.error("Failed to run command: " .. vim.inspect(cmd) .. " " .. result.stderr)
+  local result = run_job_async(cmd, nil) -- lib.process.run(cmd, { stdout = true, stderr = true })
+  if result == nil or result.code ~= 0 or result.stderr ~= "" or result.stdout == nil then
+    logger.error("Failed to run command: " .. vim.inspect(cmd) .. " " .. vim.inspect(result))
     return nil
   end
   return result.stdout
+end
+
+---@async
+---@return string|nil
+local function get_dyld_path()
+  local os = get_os()
+  if os == "Linux" then
+    return shell({ "swiftly", "use", "-p" })
+  elseif os == "macOS" then
+    return shell({ "xcrun", "--show-sdk-platform-path" }) or ""
+  else
+    return nil
+  end
 end
 
 ---@param kind SwiftTesting.TestType
@@ -139,6 +188,7 @@ end
 ---@return string|nil
 local function get_dap_cmd()
   --  TODO: use swiftly
+  --  local result = shell({"swiftly", "use", "-p"})
   local result = shell({ "xcode-select", "-p" })
   if not result then
     return nil
@@ -170,33 +220,54 @@ end
 ---@param dap_args? table
 ---@return table|nil
 local function get_dap_config(test_name, dap_args)
-  local program = get_dap_cmd()
-  if program == nil then
-    logger.error("Failed to get the spm test helper path")
+  local os = get_os()
+  if os == "Linux" then
+    local executable = get_test_executable()
+    if not executable then
+      logger.error("Failed to get the test executable path")
+      return nil
+    end
+    return vim.tbl_extend("force", dap_args or {}, {
+      name = "Swift Test debugger",
+      type = "lldb",
+      request = "attach",
+      program = "swift-test",
+      -- waitFor = true,
+      cwd = "${workspaceFolder}",
+      stopOnEntry = false,
+    })
+  elseif os == "macOS" then
+    local program = get_dap_cmd()
+    if program == nil then
+      logger.error("Failed to get the spm test helper path")
+      return nil
+    end
+    local executable = get_test_executable()
+    if not executable then
+      logger.error("Failed to get the test executable path")
+      return nil
+    end
+    return vim.tbl_extend("force", dap_args or {}, {
+      name = "Swift Test debugger",
+      type = "lldb",
+      request = "launch",
+      program = program,
+      args = {
+        "--test-bundle-path",
+        executable,
+        "--testing-library",
+        "swift-testing",
+        "--enable-swift-test",
+        "--filter",
+        test_name,
+      },
+      cwd = "${workspaceFolder}",
+      stopOnEntry = false,
+    })
+  else
+    logger.debug("Unsupported OS")
     return nil
   end
-  local executable = get_test_executable()
-  if not executable then
-    logger.error("Failed to get the test executable path")
-    return nil
-  end
-  return vim.tbl_extend("force", dap_args or {}, {
-    name = "Swift Test debugger",
-    type = "lldb",
-    request = "launch",
-    program = program,
-    args = {
-      "--test-bundle-path",
-      executable,
-      "--testing-library",
-      "swift-testing",
-      "--enable-swift-test",
-      "--filter",
-      test_name,
-    },
-    cwd = "${workspaceFolder}",
-    stopOnEntry = false,
-  })
 end
 
 ---@async
@@ -275,7 +346,7 @@ function M.build_spec(args)
       logger.error("Failed to build test bundle.")
       return nil
     end
-    local path = shell({ "xcrun", "--show-sdk-platform-path" }) or ""
+    local path = get_dyld_path() or ""
     return {
       cwd = cwd,
       context = { is_dap_active = true, position_id = position.id },
