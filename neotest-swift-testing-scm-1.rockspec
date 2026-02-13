@@ -10,7 +10,7 @@ description = {
 }
 
 source = {
-	url = "git+https://github.com/mmllr/neotest-swift-testing",
+	url = "git+https://codeberg.org/mmllr/neotest-swift-testing",
 }
 
 dependencies = {
