@@ -220,21 +220,29 @@ end
 ---@param dap_args? table
 ---@return table|nil
 local function get_dap_config(test_name, dap_args)
+  local executable = get_test_executable()
+  if not executable then
+    logger.error("Failed to get the test executable path")
+    return nil
+  end
   local os = get_os()
+  local args = {
+    "--testing-library",
+    "swift-testing",
+    "--enable-swift-test",
+    "--filter",
+    test_name,
+  }
   if os == "Linux" then
-    local executable = get_test_executable()
-    if not executable then
-      logger.error("Failed to get the test executable path")
-      return nil
-    end
     return vim.tbl_extend("force", dap_args or {}, {
       name = "Swift Test debugger",
       type = "lldb",
-      request = "attach",
-      program = "swift-test",
-      -- waitFor = true,
+      request = "launch",
+      program = executable,
+      waitFor = false,
       cwd = "${workspaceFolder}",
       stopOnEntry = false,
+      args = args,
     })
   elseif os == "macOS" then
     local program = get_dap_cmd()
@@ -242,25 +250,13 @@ local function get_dap_config(test_name, dap_args)
       logger.error("Failed to get the spm test helper path")
       return nil
     end
-    local executable = get_test_executable()
-    if not executable then
-      logger.error("Failed to get the test executable path")
-      return nil
-    end
+    args["--test-bundle-path"] = executable
     return vim.tbl_extend("force", dap_args or {}, {
       name = "Swift Test debugger",
       type = "lldb",
       request = "launch",
       program = program,
-      args = {
-        "--test-bundle-path",
-        executable,
-        "--testing-library",
-        "swift-testing",
-        "--enable-swift-test",
-        "--filter",
-        test_name,
-      },
+      args = args,
       cwd = "${workspaceFolder}",
       stopOnEntry = false,
     })
