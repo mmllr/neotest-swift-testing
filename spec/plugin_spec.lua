@@ -256,7 +256,7 @@ describe("Swift testing adapter", function()
         local result = sut.build_spec(args)
 
         assert.are.same({
-          command = expected_command(".TestSuite$"),
+          command = expected_command(".TestSuite"),
           cwd = "/project/root",
           context = {
             results_path = "/temporary/path/junit.xml",
