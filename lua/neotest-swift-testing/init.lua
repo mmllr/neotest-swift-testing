@@ -366,7 +366,7 @@ function M.build_spec(args)
   if position.type == "file" then
     table.insert(filters, "/" .. position.name)
   elseif position.type == "namespace" then
-    table.insert(filters, "." .. position.name .. "$")
+    table.insert(filters, "." .. position.name)
   elseif position.type == "test" then
     local namespace, test = string.match(position.id, ".*::(.-)::(.-)$")
     if namespace ~= nil and test ~= nil then
