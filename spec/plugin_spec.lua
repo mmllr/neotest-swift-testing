@@ -294,8 +294,8 @@ describe("Swift testing adapter", function()
         )
         given("swift build --build-tests --enable-swift-testing --disable-xctest -c debug", "")
         given("xcrun --show-sdk-platform-path", "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform")
-        given("xcode-select -p", "/Applications/Xcode.App/Contents/Developer")
-        given("fd swiftpm-testing-helper /Applications/Xcode.App/Contents/Developer", "/path/to/swiftpm-testing-helper")
+        -- given("xcode-select -p", "/Applications/Xcode.App/Contents/Developer")
+        -- given("fd swiftpm-testing-helper /Applications/Xcode.App/Contents/Developer", "/path/to/swiftpm-testing-helper")
         given("swift build --show-bin-path", "/Users/name/project/.build/arm-apple-macosx/debug")
         ---@type neotest.RunArgs
         local args = {

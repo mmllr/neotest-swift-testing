@@ -97,8 +97,8 @@ local treesitter_query = [[
 ---@param cmd string[]
 ---@return string|nil
 local function shell(cmd)
-  local result = run_job_async(cmd, nil) -- lib.process.run(cmd, { stdout = true, stderr = true })
-  if result == nil or result.code ~= 0 or result.stderr ~= "" or result.stdout == nil then
+  local code, result = lib.process.run(cmd, { stdout = true, stderr = true })
+  if result == nil or code ~= 0 or result.stderr ~= nil or result.stdout == nil then
     logger.error("Failed to run command: " .. vim.inspect(cmd) .. " " .. vim.inspect(result))
     return nil
   end
