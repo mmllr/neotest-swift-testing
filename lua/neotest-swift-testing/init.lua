@@ -8,26 +8,6 @@ local filetype = require("plenary.filetype")
 local files = require("neotest.lib.file")
 local nio = require("nio")
 
----@alias Platform
----| 'Linux'
----| 'macOS'
----| 'Windows'
-
----Get os
----@return Platform|nil
-local function get_os()
-  local os_type = vim.loop.os_uname().sysname
-  if os_type == "Linux" then
-    return "Linux"
-  elseif os_type == "Darwin" then
-    return "macOS"
-  elseif os_type == "Windows_NT" then
-    return "Windows"
-  else
-    return nil
-  end
-end
-
 ---Helper for executing external commands
 ---@param cmd string[]
 ---@param on_stdout fun(err: string?, data: string?)|nil
@@ -108,7 +88,7 @@ end
 ---@async
 ---@return string|nil
 local function get_dyld_path()
-  local os = get_os()
+  local os = util.get_os()
   if os == "Linux" then
     return shell({ "swiftly", "use", "-p" })
   elseif os == "macOS" then
@@ -225,7 +205,7 @@ local function get_dap_config(test_name, dap_args)
     logger.error("Failed to get the test executable path")
     return nil
   end
-  local os = get_os()
+  local os = util.get_os()
   local args = {
     "--testing-library",
     "swift-testing",

@@ -1,6 +1,7 @@
 local Tree = require("neotest.types").Tree
 local lib = require("neotest.lib")
 local async = require("neotest.async")
+local util = require("neotest-swift-testing.util")
 
 local function load_file(filename)
   local cwd = vim.fn.getcwd()
@@ -75,7 +76,11 @@ describe("Swift testing adapter", function()
   local sut
   setup(function()
     sut = require("neotest-swift-testing")({ log_level = vim.log.levels.OFF })
-  end)
+    util.get_os = function()
+      -- TODO: add support for Linux
+      return "macOS"
+    end
+ end)
 
   teardown(function()
     sut = nil
@@ -83,7 +88,6 @@ describe("Swift testing adapter", function()
 
   ---@type table<string, table>
   local stubbed_commands
-
   before_each(function()
     stubbed_commands = {}
     lib.process.run = function(cmd, opts)

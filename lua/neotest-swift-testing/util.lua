@@ -83,4 +83,23 @@ M.find_position = function(list, class_name, test_name, cwd)
   return find_element_by_id(list, prefix, suffix)
 end
 
+---@alias Platform
+---| 'Linux'
+---| 'macOS'
+---| 'Windows'
+
+---@return Platform|nil
+M.get_os = function()
+  local os_type = vim.loop.os_uname().sysname
+  if os_type == "Linux" then
+    return "Linux"
+  elseif os_type == "Darwin" then
+    return "macOS"
+  elseif os_type == "Windows_NT" then
+    return "Windows"
+  else
+    return nil
+  end
+end
+
 return M
