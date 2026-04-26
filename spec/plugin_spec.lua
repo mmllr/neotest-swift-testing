@@ -136,8 +136,8 @@ describe("Swift testing adapter", function()
   end)
 
   it("Has a valid root function", function()
-    local path = vim.fn.getcwd() .. "/spec/fixtures/Sources"
-    local expected = vim.fn.getcwd() .. "/spec/fixtures"
+    local path = vim.fn.getcwd() .. "/spec/Fixtures/Sources"
+    local expected = vim.fn.getcwd() .. "/spec/Fixtures"
     local actual = sut.root(path)
 
     assert.is_equal(expected, actual)
